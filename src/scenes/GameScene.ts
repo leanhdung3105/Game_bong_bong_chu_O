@@ -57,9 +57,6 @@ export default class GameScene extends Phaser.Scene {
 
     // 2. TẠO GAME CONTAINER (Chứa tất cả nội dung gameplay)
     this.gameContainer = this.add.container(0, 0);
-
-    // --- THÊM CÁC VẬT THỂ VÀO CONTAINER ---
-    // Lưu ý: Tọa độ ở đây tính theo chuẩn 1920x1080 (DESIGN_W x DESIGN_H)
     
     // Banner
     const banner = this.add.image(this.DESIGN_W / 2, this.DESIGN_H * 0.1, 'banner').setScale(1.2);
@@ -72,7 +69,7 @@ export default class GameScene extends Phaser.Scene {
     if (!this.anims.exists('run')) {
         this.anims.create({ key: 'run', frames: [{ key: 'boy1' }, { key: 'boy2' }], frameRate: 6, repeat: -1 });
     }
-    this.boy = this.add.sprite(this.DESIGN_W * 0.15, this.DESIGN_H * 0.85, 'boy1').setScale(0.7).play('run');
+    this.boy = this.add.sprite(this.DESIGN_W * 0.2, this.DESIGN_H * 0.7, 'boy1').setScale(0.7).play('run');
     this.gameContainer.add(this.boy);
 
     // Thanh điểm
