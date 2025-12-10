@@ -11,21 +11,27 @@ declare global {
 
 const config: Phaser.Types.Core.GameConfig = {
     type: Phaser.AUTO,
-    // Kích thước chuẩn thiết kế
-    width: 1920,
-    height: 1080,
     parent: 'game-container',
     
-    // 👉 QUAN TRỌNG: Làm game trong suốt
+    // Màu nền trong suốt
     backgroundColor: 'transparent',
     transparent: true,
     
+    // Width/Height ban đầu (sẽ bị override bởi RESIZE, nhưng cần khai báo)
+    width: '100%',
+    height: '100%',
+    
     scene: [GameScene, EndGameScene],
+    
     scale: {
-        // Vẫn dùng FIT để giữ gameplay không bị méo
-        mode: Phaser.Scale.FIT,
-        autoCenter: Phaser.Scale.CENTER_BOTH,
+        // --- SỬA QUAN TRỌNG ĐỂ HẾT LETTERBOX ---
+        // 1. Dùng RESIZE: Canvas sẽ luôn to bằng màn hình thiết bị
+        mode: Phaser.Scale.RESIZE,
+        
+        // 2. Tắt autoCenter: Vì đã tràn màn hình rồi thì không cần căn giữa nữa
+        autoCenter: Phaser.Scale.NO_CENTER,
     },
+    
     physics: {
         default: 'arcade',
         arcade: { debug: false }
@@ -39,7 +45,7 @@ const config: Phaser.Types.Core.GameConfig = {
 
 const game = new Phaser.Game(config);
 
-// --- Logic Responsive ---
+// --- Logic Responsive (Giữ nguyên) ---
 function handleResize() {
     const rotateMsg = document.getElementById('rotate-msg');
     const resetBtn = document.getElementById('btn-reset');

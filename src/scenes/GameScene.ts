@@ -2,20 +2,27 @@ import Phaser from 'phaser';
 import { showGameButtons, hideGameButtons } from '../main'; 
 
 export default class GameScene extends Phaser.Scene {
+  // Container chính chứa nội dung game
+  private gameContainer!: Phaser.GameObjects.Container;
+  private bg!: Phaser.GameObjects.Image;
 
-  // ... (Khai báo biến giữ nguyên) ...
   private boy!: Phaser.GameObjects.Sprite;
   private hand!: Phaser.GameObjects.Sprite;
   private scoreContainer!: Phaser.GameObjects.Container;
   private barFill!: Phaser.GameObjects.Graphics;
   private iconO!: Phaser.GameObjects.Container;
-  // Xóa biến bg nếu không dùng trong Phaser nữa
 
   private score: number = 0;
-  private maxScore: number = 10;
+  private maxScore: number = 2;
   private currentBarWidth: number = 0;
+  
+  // Kích thước chuẩn thiết kế
+  private readonly DESIGN_W = 1920;
+  private readonly DESIGN_H = 1080;
+  
   private readonly BAR_MAX_WIDTH = 800; 
   private readonly BAR_HEIGHT = 50;
+
   private balloonColors = ['red', 'blue', 'green', 'yellow', 'purple'];
   private items = ['grape', 'bee', 'flower', 'stonke', 'dog', 'letter_o', 'cow', 'rabbit', 'whistle'];
 
@@ -23,9 +30,7 @@ export default class GameScene extends Phaser.Scene {
   init() { this.score = 0; this.currentBarWidth = 0; }
 
   preload() {
-    // Vẫn load background nếu muốn dùng cho EndGameScene hoặc trường hợp khác
     this.load.image('background', 'assets/images/bg.webp');
-    // ... load assets khác ...
     this.load.image('boy1', 'assets/images/boy1.webp');
     this.load.image('boy2', 'assets/images/boy2.webp');
     this.load.image('banner', 'assets/images/banner.webp');
@@ -46,33 +51,68 @@ export default class GameScene extends Phaser.Scene {
 
   create() {
     (window as any).gameScene = this;
-    const width = this.scale.width; 
-    const height = this.scale.height;
 
-    // --- XÓA PHẦN TẠO BACKGROUND Ở ĐÂY ĐỂ DÙNG NỀN CSS TRÀN VIỀN ---
-    // (Background ở style.css sẽ luôn cover toàn màn hình)
+    // 1. TẠO HÌNH NỀN (Nằm ngoài container để tràn viền)
+    this.bg = this.add.image(0, 0, 'background').setOrigin(0.5);
 
-    // 2. BANNER
-    this.add.image(width / 2, height * 0.1, 'banner').setScale(1.2);
-    this.add.text(width / 2, height * 0.1, 'BÉ HÃY CHỌN QUẢ BÓNG CÓ HÌNH NHÉ!', {
+    // 2. TẠO GAME CONTAINER (Chứa tất cả nội dung gameplay)
+    this.gameContainer = this.add.container(0, 0);
+
+    // --- THÊM CÁC VẬT THỂ VÀO CONTAINER ---
+    // Lưu ý: Tọa độ ở đây tính theo chuẩn 1920x1080 (DESIGN_W x DESIGN_H)
+    
+    // Banner
+    const banner = this.add.image(this.DESIGN_W / 2, this.DESIGN_H * 0.1, 'banner').setScale(1.2);
+    const titleText = this.add.text(this.DESIGN_W / 2, this.DESIGN_H * 0.1, 'BÉ HÃY CHỌN QUẢ BÓNG CÓ HÌNH NHÉ!', {
         fontSize: '32px', fontFamily: 'Arial', color: '#ffffff', stroke: '#000', strokeThickness: 4
     }).setOrigin(0.5);
+    this.gameContainer.add([banner, titleText]);
     
-    // 3. BÉ TRAI
+    // Boy
     if (!this.anims.exists('run')) {
         this.anims.create({ key: 'run', frames: [{ key: 'boy1' }, { key: 'boy2' }], frameRate: 6, repeat: -1 });
     }
-    this.boy = this.add.sprite(width * 0.15, height * 0.85, 'boy1'); 
-    this.boy.setScale(0.7).play('run');
+    this.boy = this.add.sprite(this.DESIGN_W * 0.15, this.DESIGN_H * 0.85, 'boy1').setScale(0.7).play('run');
+    this.gameContainer.add(this.boy);
 
-    // 4. THANH ĐIỂM
-    this.createScoreBarElements();
-    this.scoreContainer.setPosition(width / 2, height * 0.9);
+    // Thanh điểm
+    this.createScoreBarElements(); // Hàm này sẽ add vào container
+    this.scoreContainer.setPosition(this.DESIGN_W / 2, this.DESIGN_H * 0.9);
 
-    // 5. TUTORIAL
+    // Tutorial
     this.startTutorial(); 
     
+    // 3. GỌI HÀM RESIZE LẦN ĐẦU
+    this.handleResize({ width: this.scale.width, height: this.scale.height });
+
+    // 4. LẮNG NGHE SỰ KIỆN RESIZE
+    this.scale.on('resize', this.handleResize, this);
+    
     showGameButtons();
+  }
+
+  // --- LOGIC SCALE THÔNG MINH ---
+  handleResize(gameSize: { width: number, height: number }) {
+      const w = gameSize.width;
+      const h = gameSize.height;
+
+      // A. Xử lý Background (Cover - Tràn viền)
+      this.bg.setPosition(w / 2, h / 2);
+      const scaleX = w / this.bg.width;
+      const scaleY = h / this.bg.height;
+      const scale = Math.max(scaleX, scaleY); // Lấy số lớn hơn để luôn phủ kín
+      this.bg.setScale(scale);
+
+      // B. Xử lý Game Container (Fit - Nằm gọn ở giữa)
+      // Tính tỉ lệ scale để nội dung 1920x1080 nằm gọn trong màn hình hiện tại
+      const contentScale = Math.min(w / this.DESIGN_W, h / this.DESIGN_H);
+      
+      this.gameContainer.setScale(contentScale);
+      
+      // Căn giữa container
+      // Công thức: (Màn hình - (Kích thước gốc * scale)) / 2
+      this.gameContainer.x = (w - this.DESIGN_W * contentScale) / 2;
+      this.gameContainer.y = (h - this.DESIGN_H * contentScale) / 2;
   }
 
   restartLevel() {
@@ -80,7 +120,6 @@ export default class GameScene extends Phaser.Scene {
       this.scene.restart();
   }
 
-  // ... (Giữ nguyên các hàm khác: createScoreBarElements, increaseScore, spawnBalloon, startTutorial) ...
   createScoreBarElements() {
       this.scoreContainer = this.add.container(0, 0);
       const startX = -this.BAR_MAX_WIDTH / 2;
@@ -93,7 +132,8 @@ export default class GameScene extends Phaser.Scene {
       const text = this.add.text(0, 0, 'O', { fontSize: '32px', color: '#FF4444', fontFamily: 'Arial', fontStyle: 'bold' }).setOrigin(0.5);
       this.iconO.add([circle, text]);
       this.scoreContainer.add([bgBar, this.barFill, this.iconO]);
-      this.scoreContainer.setDepth(100);
+      // QUAN TRỌNG: Add container con vào container chính
+      this.gameContainer.add(this.scoreContainer);
   }
 
   increaseScore() {
@@ -122,13 +162,15 @@ export default class GameScene extends Phaser.Scene {
   }
 
   spawnBalloon() {
-    const width = this.scale.width;
-    const height = this.scale.height;
-    const randomX = Phaser.Math.Between(200, width - 200); 
-    const container = this.add.container(randomX, height + 150);
+    // Random trong khung chuẩn 1920
+    const randomX = Phaser.Math.Between(200, this.DESIGN_W - 200); 
+    // Spawn bên dưới màn hình chuẩn
+    const container = this.add.container(randomX, this.DESIGN_H + 150);
+
     const color = Phaser.Utils.Array.GetRandom(this.balloonColors);
     const balloon = this.add.sprite(0, 0, `balloon_${color}`).setScale(0.8);
     container.add(balloon);
+
     const hasItem = Math.random() < 0.6;
     let itemName = '';
     if (hasItem) {
@@ -136,8 +178,14 @@ export default class GameScene extends Phaser.Scene {
         const itemSprite = this.add.sprite(0, -40, `item_${itemName}`).setScale(0.9);
         container.add(itemSprite);
     }
+
+    // Add bóng vào game container chính để nó cũng được scale theo
+    this.gameContainer.add(container);
+
+    // Physics cần enable thủ công vì container cha bị scale
     this.physics.world.enable(container);
     (container.body as Phaser.Physics.Arcade.Body).setVelocityY(Phaser.Math.Between(-200, -400));
+
     balloon.setInteractive();
     balloon.on('pointerdown', () => {
         container.destroy();
@@ -149,21 +197,23 @@ export default class GameScene extends Phaser.Scene {
         }
     });
     this.events.on('update', () => {
+        // Check theo tọa độ Y chuẩn
         if (container.active && container.y < -200) container.destroy();
     });
   }
 
   startTutorial() {
-      const width = this.scale.width;
-      const height = this.scale.height;
       try { this.sound.play('instruction'); } catch { /* ignore sound error */ }
-      const container = this.add.container(width / 2, height * 0.4);
+      const container = this.add.container(this.DESIGN_W / 2, this.DESIGN_H * 0.4);
       const balloon = this.add.sprite(0, 0, 'balloon_yellow').setScale(0.8);
       const item = this.add.sprite(0, -40, 'item_stonke').setScale(0.9);
       container.add([balloon, item]);
-      this.hand = this.add.sprite(width / 2 + 60, height * 0.4 + 100, 'hand').setScale(1);
-      this.hand.setDepth(200);
-      this.tweens.add({ targets: this.hand, x: width / 2 + 30, y: height * 0.4 + 50, duration: 800, yoyo: true, repeat: -1 });
+      this.hand = this.add.sprite(this.DESIGN_W / 2 + 60, this.DESIGN_H * 0.4 + 100, 'hand').setScale(1);
+      
+      this.gameContainer.add(container);
+      this.gameContainer.add(this.hand);
+
+      this.tweens.add({ targets: this.hand, x: this.DESIGN_W / 2 + 30, y: this.DESIGN_H * 0.4 + 50, duration: 800, yoyo: true, repeat: -1 });
       balloon.setInteractive();
       balloon.on('pointerdown', () => {
           container.destroy();
