@@ -1,68 +1,104 @@
 import Phaser from 'phaser';
 import './style.css';
 import GameScene from './scenes/GameScene';
-import EndgameScene from './scenes/EndgameScene';
+import EndGameScene from './scenes/EndgameScene';
+
+declare global {
+    interface Window {
+        gameScene: any;
+    }
+}
 
 const config: Phaser.Types.Core.GameConfig = {
-  type: Phaser.AUTO,
-  width: 1280,
-  height: 1080,
-  parent: 'game-container',
-  backgroundColor: '#ffffff',
-  scene: [GameScene, EndgameScene],
-  scale: {
-    mode: Phaser.Scale.FIT,
-    // SỬA: Tắt autoCenter để CSS Flexbox bên ngoài tự lo
-    autoCenter: Phaser.Scale.NO_CENTER, 
-  },
-  physics: {
-    default: 'arcade',
-    arcade: { debug: false }
-  },
-  render: {
+    type: Phaser.AUTO,
+    // Kích thước chuẩn thiết kế
+    width: 1920,
+    height: 1080,
+    parent: 'game-container',
+    
+    // 👉 QUAN TRỌNG: Làm game trong suốt
+    backgroundColor: 'transparent',
+    transparent: true,
+    
+    scene: [GameScene, EndGameScene],
+    scale: {
+        // Vẫn dùng FIT để giữ gameplay không bị méo
+        mode: Phaser.Scale.FIT,
+        autoCenter: Phaser.Scale.CENTER_BOTH,
+    },
+    physics: {
+        default: 'arcade',
+        arcade: { debug: false }
+    },
+    render: {
         pixelArt: false,
         antialias: true,
         transparent: true,
     },
 };
 
-new Phaser.Game(config);
+const game = new Phaser.Game(config);
 
-function resizeGame() {
-    const gameDiv = document.getElementById('game-container');
-    if (!gameDiv) return;
+// --- Logic Responsive ---
+function handleResize() {
+    const rotateMsg = document.getElementById('rotate-msg');
+    const resetBtn = document.getElementById('btn-reset');
+    if (!rotateMsg) return;
 
-    // SỬA: Dùng document.documentElement.clientWidth để lấy kích thước chuẩn hơn, trừ thanh cuộn
-    const windowWidth = document.documentElement.clientWidth;
-    const windowHeight = document.documentElement.clientHeight;
+    const w = window.innerWidth;
+    const h = window.innerHeight;
 
-    if (windowHeight > windowWidth) {
-        // Màn hình dọc (Mobile)
-        gameDiv.style.width = `${windowHeight}px`;
-        gameDiv.style.height = `${windowWidth}px`;
-        gameDiv.style.transform = 'translate(-50%, -50%) rotate(90deg)';
+    if (h > w) {
+        // Màn dọc
+        rotateMsg.style.display = 'flex';
+        game.scene.scenes.forEach(s => { if (s.scene.isActive()) s.scene.pause(); });
+        if (resetBtn) resetBtn.style.display = 'none';
     } else {
-        // Màn hình ngang (PC/Tablet)
-        gameDiv.style.width = `${windowWidth}px`;
-        gameDiv.style.height = `${windowHeight}px`;
-        gameDiv.style.transform = 'translate(-50%, -50%) rotate(0deg)';
+        // Màn ngang
+        rotateMsg.style.display = 'none';
+        game.scene.scenes.forEach(s => { if (s.scene.isPaused()) s.scene.resume(); });
+        
+        // Scale nút
+        if (resetBtn) {
+            const btnHeight = h * 0.12; 
+            const finalSize = Math.min(Math.max(btnHeight, 60), 140);
+            resetBtn.style.width = `${finalSize}px`;
+            resetBtn.style.height = 'auto';
+            if (resetBtn.dataset.visible === 'true') resetBtn.style.display = 'block';
+        }
     }
 }
+
 export function showGameButtons() {
     const reset = document.getElementById('btn-reset');
-    if (reset) reset.style.display = 'block';
+    if (reset) {
+        reset.dataset.visible = 'true';
+        if (window.innerWidth > window.innerHeight) reset.style.display = 'block';
+    }
 }
 
 export function hideGameButtons() {
     const reset = document.getElementById('btn-reset');
-    if (reset) reset.style.display = 'none';
+    if (reset) {
+        reset.dataset.visible = 'false';
+        reset.style.display = 'none';
+    }
 }
 
-window.addEventListener('load', resizeGame);
-window.addEventListener('resize', resizeGame);
-// Orientation change đôi khi cần delay để trình duyệt cập nhật xong width/height
-window.addEventListener('orientationchange', () => {
-    setTimeout(resizeGame, 300);
-});
+(window as any).showGameButtonsWrapper = showGameButtons;
+(window as any).hideGameButtonsWrapper = hideGameButtons;
 
-resizeGame();
+window.addEventListener('load', handleResize);
+window.addEventListener('resize', handleResize);
+window.addEventListener('orientationchange', () => setTimeout(handleResize, 300));
+
+const btnReset = document.getElementById('btn-reset');
+if (btnReset) {
+    btnReset.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (window.gameScene && typeof window.gameScene.restartLevel === 'function') {
+            window.gameScene.restartLevel();
+        }
+    });
+}

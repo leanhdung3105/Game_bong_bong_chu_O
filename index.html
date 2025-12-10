@@ -7,8 +7,24 @@
     <title>Game Bóng Bay</title>
   </head>
   <body>
-    <div id="game-container"></div>
-    
+    <div id="game-container">
+       <div id="bg-layer-a" class="bg-layer"></div>
+       <div id="bg-layer-b" class="bg-layer"></div>
+    </div>
+
+    <img
+      id="btn-reset"
+      class="ui-btn"
+      src="/assets/images/btn_replay.webp"
+      alt="Reset"
+      draggable="false"
+    />
+
+    <div id="rotate-msg">
+        <div class="phone-icon"></div>
+        <p>Vui lòng xoay ngang màn hình để chơi</p>
+    </div>
+
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
