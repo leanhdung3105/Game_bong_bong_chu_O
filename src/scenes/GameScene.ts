@@ -1,222 +1,385 @@
 import Phaser from 'phaser';
-import { showGameButtons, hideGameButtons } from '../main'; 
+import { showGameButtons, hideGameButtons } from '../main';
+
+// Định nghĩa Interface nếu muốn mở rộng Level sau này
+interface GameState {
+    score: number;
+    maxScore: number;
+    isPlaying: boolean;
+}
 
 export default class GameScene extends Phaser.Scene {
-  // Container chính chứa nội dung game
-  private gameContainer!: Phaser.GameObjects.Container;
-  private bg!: Phaser.GameObjects.Image;
-
-  private boy!: Phaser.GameObjects.Sprite;
-  private hand!: Phaser.GameObjects.Sprite;
-  private scoreContainer!: Phaser.GameObjects.Container;
-  private barFill!: Phaser.GameObjects.Graphics;
-  private iconO!: Phaser.GameObjects.Container;
-
-  private score: number = 0;
-  private maxScore: number = 2;
-  private currentBarWidth: number = 0;
-  
-  // Kích thước chuẩn thiết kế
-  private readonly DESIGN_W = 1920;
-  private readonly DESIGN_H = 1080;
-  
-  private readonly BAR_MAX_WIDTH = 800; 
-  private readonly BAR_HEIGHT = 50;
-
-  private balloonColors = ['red', 'blue', 'green', 'yellow', 'purple'];
-  private items = ['grape', 'bee', 'flower', 'stonke', 'dog', 'letter_o', 'cow', 'rabbit', 'whistle'];
-
-  constructor() { super('GameScene'); }
-  init() { this.score = 0; this.currentBarWidth = 0; }
-
-  preload() {
-    this.load.image('background', 'assets/images/bg.webp');
-    this.load.image('boy1', 'assets/images/boy1.webp');
-    this.load.image('boy2', 'assets/images/boy2.webp');
-    this.load.image('banner', 'assets/images/banner.webp');
-    this.load.image('hand', 'assets/images/hand.webp');
-    this.load.image('bar_frame', 'assets/images/bar_frame.webp');
-    this.load.image('popup_win', 'assets/images/popup_win.webp');
-    this.load.image('btn_replay', 'assets/images/btn_replay.webp');
-    this.load.image('btn_exit', 'assets/images/btn_exit.webp');
-    this.load.audio('instruction', 'assets/audio/instruction.ogg');
-    this.load.audio('wrong', 'assets/audio/wrong.ogg');
-    this.load.audio('pop', 'assets/audio/tieng_no.ogg');
-    this.balloonColors.forEach(c => this.load.image(`balloon_${c}`, `assets/images/balloon_${c}.webp`));
-    this.items.forEach(i => { 
-      this.load.image(`item_${i}`, `assets/images/${i}.webp`);
-      this.load.audio(`sound_${i}`, `assets/audio/${i}.ogg`);
-    });
-  }
-
-  create() {
-    (window as any).gameScene = this;
-
-    // 1. TẠO HÌNH NỀN (Nằm ngoài container để tràn viền)
-    this.bg = this.add.image(0, 0, 'background').setOrigin(0.5);
-
-    // 2. TẠO GAME CONTAINER (Chứa tất cả nội dung gameplay)
-    this.gameContainer = this.add.container(0, 0);
+    // --- PROPERTIES ---
+    private bg!: Phaser.GameObjects.Image;
+    private boy!: Phaser.GameObjects.Sprite;
+    private hand!: Phaser.GameObjects.Sprite;
     
-    // Banner
-    const banner = this.add.image(this.DESIGN_W / 2, this.DESIGN_H * 0.1, 'banner').setScale(1.2);
-    const titleText = this.add.text(this.DESIGN_W / 2, this.DESIGN_H * 0.1, 'BÉ HÃY CHỌN QUẢ BÓNG CÓ HÌNH NHÉ!', {
-        fontSize: '32px', fontFamily: 'Arial', color: '#ffffff', stroke: '#000', strokeThickness: 4
-    }).setOrigin(0.5);
-    this.gameContainer.add([banner, titleText]);
+    // UI Elements
+    private scoreContainer!: Phaser.GameObjects.Container;
+    private barFill!: Phaser.GameObjects.Graphics;
+    private iconO!: Phaser.GameObjects.Container;
     
-    // Boy
-    if (!this.anims.exists('run')) {
-        this.anims.create({ key: 'run', frames: [{ key: 'boy1' }, { key: 'boy2' }], frameRate: 6, repeat: -1 });
-    }
-    this.boy = this.add.sprite(this.DESIGN_W * 0.2, this.DESIGN_H * 0.7, 'boy1').setScale(0.7).play('run');
-    this.gameContainer.add(this.boy);
+    // Logic Variables
+    private state: GameState = { score: 0, maxScore: 2, isPlaying: false };
+    private currentBarWidth: number = 0;
+    private spawnTimer?: Phaser.Time.TimerEvent;
 
-    // Thanh điểm
-    this.createScoreBarElements(); // Hàm này sẽ add vào container
-    this.scoreContainer.setPosition(this.DESIGN_W / 2, this.DESIGN_H * 0.9);
+    // Config Assets
+    private balloonColors = ['red', 'blue', 'green', 'yellow', 'purple'];
+    private items = ['grape', 'bee', 'flower', 'stonke', 'dog', 'letter_o', 'cow', 'rabbit', 'whistle'];
 
-    // Tutorial
-    this.startTutorial(); 
-    
-    // 3. GỌI HÀM RESIZE LẦN ĐẦU
-    this.handleResize({ width: this.scale.width, height: this.scale.height });
-
-    // 4. LẮNG NGHE SỰ KIỆN RESIZE
-    this.scale.on('resize', this.handleResize, this);
-    
-    showGameButtons();
-  }
-
-  // --- LOGIC SCALE THÔNG MINH ---
-  handleResize(gameSize: { width: number, height: number }) {
-      const w = gameSize.width;
-      const h = gameSize.height;
-
-      // A. Xử lý Background (Cover - Tràn viền)
-      this.bg.setPosition(w / 2, h / 2);
-      const scaleX = w / this.bg.width;
-      const scaleY = h / this.bg.height;
-      const scale = Math.max(scaleX, scaleY); // Lấy số lớn hơn để luôn phủ kín
-      this.bg.setScale(scale);
-
-      // B. Xử lý Game Container (Fit - Nằm gọn ở giữa)
-      // Tính tỉ lệ scale để nội dung 1920x1080 nằm gọn trong màn hình hiện tại
-      const contentScale = Math.min(w / this.DESIGN_W, h / this.DESIGN_H);
-      
-      this.gameContainer.setScale(contentScale);
-      
-      // Căn giữa container
-      // Công thức: (Màn hình - (Kích thước gốc * scale)) / 2
-      this.gameContainer.x = (w - this.DESIGN_W * contentScale) / 2;
-      this.gameContainer.y = (h - this.DESIGN_H * contentScale) / 2;
-  }
-
-  restartLevel() {
-      this.sound.stopAll();
-      this.scene.restart();
-  }
-
-  createScoreBarElements() {
-      this.scoreContainer = this.add.container(0, 0);
-      const startX = -this.BAR_MAX_WIDTH / 2;
-      const bgBar = this.add.graphics();
-      bgBar.fillStyle(0xCCCCCC, 1);
-      bgBar.fillRoundedRect(startX, -this.BAR_HEIGHT / 2, this.BAR_MAX_WIDTH, this.BAR_HEIGHT, 25);
-      this.barFill = this.add.graphics();
-      this.iconO = this.add.container(startX, 0);
-      const circle = this.add.circle(0, 0, 30, 0xFFFFFF).setStrokeStyle(3, 0xFF4444);
-      const text = this.add.text(0, 0, 'O', { fontSize: '32px', color: '#FF4444', fontFamily: 'Arial', fontStyle: 'bold' }).setOrigin(0.5);
-      this.iconO.add([circle, text]);
-      this.scoreContainer.add([bgBar, this.barFill, this.iconO]);
-      // QUAN TRỌNG: Add container con vào container chính
-      this.gameContainer.add(this.scoreContainer);
-  }
-
-  increaseScore() {
-      if (this.score < this.maxScore) this.score++;
-      const ratio = this.score / this.maxScore;
-      const newWidth = this.BAR_MAX_WIDTH * ratio;
-      const startX = -this.BAR_MAX_WIDTH / 2;
-      const temp = { w: this.currentBarWidth || 0 };
-      this.currentBarWidth = newWidth;
-      this.tweens.add({
-          targets: temp, w: newWidth, duration: 300,
-          onUpdate: () => {
-              this.barFill.clear();
-              this.barFill.fillStyle(0x4CAF50, 1);
-              this.barFill.fillRoundedRect(startX, -this.BAR_HEIGHT / 2, temp.w, this.BAR_HEIGHT, 25);
-              this.iconO.x = startX + temp.w;
-          },
-          onComplete: () => {
-              if (this.score >= this.maxScore) {
-                  hideGameButtons();
-                  this.scene.stop('GameScene');
-                  this.scene.start('EndGameScene');
-              }
-          }
-      });
-  }
-
-  spawnBalloon() {
-    // Random trong khung chuẩn 1920
-    const randomX = Phaser.Math.Between(200, this.DESIGN_W - 200); 
-    // Spawn bên dưới màn hình chuẩn
-    const container = this.add.container(randomX, this.DESIGN_H + 150);
-
-    const color = Phaser.Utils.Array.GetRandom(this.balloonColors);
-    const balloon = this.add.sprite(0, 0, `balloon_${color}`).setScale(0.8);
-    container.add(balloon);
-
-    const hasItem = Math.random() < 0.6;
-    let itemName = '';
-    if (hasItem) {
-        itemName = Phaser.Utils.Array.GetRandom(this.items);
-        const itemSprite = this.add.sprite(0, -40, `item_${itemName}`).setScale(0.9);
-        container.add(itemSprite);
+    constructor() {
+        super('GameScene');
     }
 
-    // Add bóng vào game container chính để nó cũng được scale theo
-    this.gameContainer.add(container);
+    // --- 1. HELPER METHODS (Responsive) ---
+    // Thay thế cho logic handleResize phức tạp cũ
+    private getW() { return this.scale.width; }
+    private getH() { return this.scale.height; }
+    private pctX(p: number) { return this.getW() * p; }
+    private pctY(p: number) { return this.getH() * p; }
 
-    // Physics cần enable thủ công vì container cha bị scale
-    this.physics.world.enable(container);
-    (container.body as Phaser.Physics.Arcade.Body).setVelocityY(Phaser.Math.Between(-200, -400));
+    // --- 2. LIFECYCLE: INIT & PRELOAD ---
+    init() {
+        this.state = { score: 0, maxScore: 10, isPlaying: false };
+        this.currentBarWidth = 0;
+    }
 
-    balloon.setInteractive();
-    balloon.on('pointerdown', () => {
-        container.destroy();
-        if (hasItem) {
-            this.increaseScore();
-            try { this.sound.play(`sound_${itemName}`); } catch { /* ignore sound error */ }
-        } else {
-            try { this.sound.play('wrong'); } catch { /* ignore sound error */ }
+    preload() {
+        // Load Assets (Giữ nguyên từ code cũ)
+        this.load.image('background', 'assets/images/bg.webp');
+        this.load.image('boy1', 'assets/images/boy1.webp');
+        this.load.image('boy2', 'assets/images/boy2.webp');
+        this.load.image('banner', 'assets/images/banner.webp');
+        this.load.image('hand', 'assets/images/hand.webp');
+        this.load.image('popup_win', 'assets/images/popup_win.webp');
+        
+        // Audio
+        this.load.audio('instruction', 'assets/audio/instruction.ogg');
+        this.load.audio('wrong', 'assets/audio/wrong.ogg');
+        this.load.audio('pop', 'assets/audio/tieng_no.ogg');
+
+        // Loop load items & balloons
+        this.balloonColors.forEach(c => this.load.image(`balloon_${c}`, `assets/images/balloon_${c}.webp`));
+        this.items.forEach(i => {
+            this.load.image(`item_${i}`, `assets/images/${i}.webp`);
+            this.load.audio(`sound_${i}`, `assets/audio/${i}.ogg`);
+        });
+    }
+
+    // --- 3. CREATE UI & SCENE ---
+    create() {
+        (window as any).gameScene = this;
+        
+        this.createBackground();
+        this.createBanner();
+        this.createBoy();
+        this.createScoreBar();
+
+        // Bắt đầu Tutorial
+        this.startTutorial();
+
+        showGameButtons();
+    }
+
+    // Tách nhỏ các hàm create để code gọn hơn
+    private createBackground() {
+        const w = this.getW();
+        const h = this.getH();
+        this.bg = this.add.image(w / 2, h / 2, 'background').setOrigin(0.5);
+        
+        // Logic Cover (Tràn viền)
+        const scale = Math.max(w / this.bg.width, h / this.bg.height);
+        this.bg.setScale(scale);
+    }
+
+    private createBanner() {
+        // Đặt banner ở 10% chiều cao màn hình
+        const banner = this.add.image(this.pctX(0.5), this.pctY(0.1), 'banner');
+        // Scale banner theo chiều rộng màn hình (ví dụ 60% chiều rộng)
+        const scaleFactor = (this.getW() * 0.6) / banner.width;
+        banner.setScale(scaleFactor);
+
+        this.add.text(this.pctX(0.5), this.pctY(0.1), 'BÉ HÃY CHỌN QUẢ BÓNG CÓ HÌNH NHÉ!', {
+            fontSize: `${Math.round(this.getH() * 0.04)}px`, // Font size responsive
+            fontFamily: 'Arial',
+            color: '#ffffff',
+            stroke: '#000',
+            strokeThickness: 4
+        }).setOrigin(0.5);
+    }
+
+    private createBoy() {
+        // Tạo animation nếu chưa có
+        if (!this.anims.exists('run')) {
+            this.anims.create({
+                key: 'run',
+                frames: [{ key: 'boy1' }, { key: 'boy2' }],
+                frameRate: 6,
+                repeat: -1
+            });
         }
-    });
-    this.events.on('update', () => {
-        // Check theo tọa độ Y chuẩn
-        if (container.active && container.y < -200) container.destroy();
-    });
-  }
+        
+       // 2. Tạo Sprite
+        // pctX(0.2): Vị trí ngang (20% màn hình từ trái sang)
+        // pctY(0.9): Vị trí dọc (Chân chạm đất ở 80% màn hình)
+        this.boy = this.add.sprite(this.pctX(0.2), this.pctY(0.9), 'boy1');
+        
+        // --- BƯỚC QUAN TRỌNG: GHIM CHÂN ---
+        this.boy.setOrigin(0.5, 1); 
 
-  startTutorial() {
-      try { this.sound.play('instruction'); } catch { /* ignore sound error */ }
-      const container = this.add.container(this.DESIGN_W / 2, this.DESIGN_H * 0.4);
-      const balloon = this.add.sprite(0, 0, 'balloon_yellow').setScale(0.8);
-      const item = this.add.sprite(0, -40, 'item_stonke').setScale(0.9);
-      container.add([balloon, item]);
-      this.hand = this.add.sprite(this.DESIGN_W / 2 + 60, this.DESIGN_H * 0.4 + 100, 'hand').setScale(1);
-      
-      this.gameContainer.add(container);
-      this.gameContainer.add(this.hand);
+        // --- BƯỚC SỬA LỖI GIÃN HÌNH ---
+        
+        // A. Tính chiều cao mong muốn (35% chiều cao màn hình)
+        const targetHeight = this.getH() * 0.35; 
 
-      this.tweens.add({ targets: this.hand, x: this.DESIGN_W / 2 + 30, y: this.DESIGN_H * 0.4 + 50, duration: 800, yoyo: true, repeat: -1 });
-      balloon.setInteractive();
-      balloon.on('pointerdown', () => {
-          container.destroy();
-          this.hand.destroy();
-          try { this.sound.play('sound_stonke'); } catch { /* ignore sound error */ }
-          this.time.addEvent({ delay: 1000, callback: this.spawnBalloon, callbackScope: this, loop: true });
-      });
-  }
+        // B. Tính ra tỉ lệ Scale chuẩn
+        // (Chỉ quan tâm chiều cao, không quan tâm chiều rộng màn hình)
+        const scale = targetHeight / this.boy.height;
+
+        // C. Áp dụng tỉ lệ này cho CẢ HAI CHIỀU
+        // (Đây là mấu chốt: scaleX và scaleY phải GIỐNG HỆT NHAU)
+        this.boy.setScale(scale, scale); 
+
+        // --- LƯU Ý CỰC KỲ QUAN TRỌNG ---
+        // Tuyệt đối KHÔNG được dùng dòng lệnh dưới đây nữa (hãy xóa nó đi nếu còn):
+        // this.boy.setDisplaySize(...); 
+        
+        // 3. Chạy animation
+        this.boy.play('run');
+    }
+
+    private createScoreBar() {
+        const w = this.getW();
+        const barWidth = w * 0.5; // Thanh bar dài 50% màn hình
+        const barHeight = this.getH() * 0.06;
+
+        this.scoreContainer = this.add.container(this.pctX(0.5), this.pctY(0.9));
+
+        // Nền bar
+        const bgBar = this.add.graphics();
+        bgBar.fillStyle(0xCCCCCC, 1);
+        bgBar.fillRoundedRect(-barWidth / 2, -barHeight / 2, barWidth, barHeight, barHeight / 2);
+
+        this.barFill = this.add.graphics();
+        
+        // Icon tròn
+        this.iconO = this.add.container(-barWidth / 2, 0);
+        const circleSize = barHeight * 0.8;
+        const circle = this.add.circle(0, 0, circleSize, 0xFFFFFF).setStrokeStyle(3, 0xFF4444);
+        const text = this.add.text(0, 0, 'O', { 
+            fontSize: `${Math.round(circleSize)}px`, 
+            color: '#FF4444', 
+            fontFamily: 'Arial', 
+            fontStyle: 'bold' 
+        }).setOrigin(0.5);
+        
+        this.iconO.add([circle, text]);
+        this.scoreContainer.add([bgBar, this.barFill, this.iconO]);
+
+        // Lưu thông số để dùng khi update điểm
+        this.scoreContainer.setData('maxWidth', barWidth);
+        this.scoreContainer.setData('height', barHeight);
+    }
+
+    // --- 4. GAMEPLAY LOGIC ---
+
+    startTutorial() {
+        try { this.sound.play('instruction'); } catch {}
+
+        // Tạo bóng tutorial ở giữa màn hình
+        const balloonContainer = this.createBalloonContainer('balloon_yellow', 'item_stonke');
+        balloonContainer.setPosition(this.pctX(0.5), this.pctY(0.4));
+        
+        // Tay chỉ dẫn
+        this.hand = this.add.sprite(this.pctX(0.55), this.pctY(0.55), 'hand');
+        this.hand.setDisplaySize(this.getW() * 0.08, this.getW() * 0.08); // Scale tay tương đối
+
+        // Animation tay
+        this.tweens.add({
+            targets: this.hand,
+            x: this.pctX(0.52),
+            y: this.pctY(0.45),
+            duration: 800,
+            yoyo: true,
+            repeat: -1
+        });
+
+        // Click event cho tutorial
+        const hitArea = balloonContainer.getAt(0) as Phaser.GameObjects.Sprite; // Lấy cái bóng
+        hitArea.once('pointerdown', () => {
+            balloonContainer.destroy();
+            this.hand.destroy();
+            try { this.sound.play('sound_stonke'); } catch {}
+            
+            // Bắt đầu game chính thức
+            this.state.isPlaying = true;
+            this.startGameLoop();
+        });
+    }
+
+    startGameLoop() {
+        // Spawn bóng mỗi giây
+        this.spawnTimer = this.time.addEvent({
+            delay: 1000,
+            callback: this.spawnBalloon,
+            callbackScope: this,
+            loop: true
+        });
+    }
+
+    spawnBalloon() {
+        if (!this.state.isPlaying) return;
+
+        // Random màu và item
+        const color = Phaser.Utils.Array.GetRandom(this.balloonColors);
+        const hasItem = Math.random() < 0.6;
+        let itemName = null;
+        if (hasItem) itemName = Phaser.Utils.Array.GetRandom(this.items);
+
+        const container = this.createBalloonContainer(`balloon_${color}`, hasItem ? `item_${itemName}` : null);
+        
+        // Vị trí xuất phát: Random X (trừ lề 10%), Y ở dưới đáy màn hình
+        const startX = Phaser.Math.Between(this.getW() * 0.1, this.getW() * 0.9);
+        const startY = this.getH() + 200;
+        
+        container.setPosition(startX, startY);
+
+        // Hiệu ứng bay lên bằng Tween (thay vì Physics để mượt hơn trên mọi màn hình)
+        this.tweens.add({
+            targets: container,
+            y: -200, // Bay quá đầu màn hình
+            duration: Phaser.Math.Between(4000, 6000), // Tốc độ ngẫu nhiên
+            ease: 'Sine.easeInOut',
+            onComplete: () => {
+                container.destroy();
+            }
+        });
+
+        // Xử lý click
+        const balloonSprite = container.getAt(0) as Phaser.GameObjects.Sprite;
+        balloonSprite.on('pointerdown', () => {
+            if (hasItem) {
+                this.handleCorrect(container, itemName as string);
+            } else {
+                this.handleWrong(container);
+            }
+        });
+    }
+
+    createBalloonContainer(balloonKey: string, itemKey: string | null) {
+        const container = this.add.container(0, 0);
+        const baseSize = this.getH() * 0.2; // Chiều cao mong muốn (20% màn hình)
+
+        // --- SỬA PHẦN BÓNG ---
+        const balloon = this.add.sprite(0, 0, balloonKey);
+        
+        // Cách 1: Tính scale dựa trên chiều cao, chiều rộng sẽ tự đi theo
+        const scale = baseSize / balloon.height;
+        balloon.setScale(scale); 
+        
+        // (Hoặc Cách 2 nếu bạn vẫn muốn dùng setDisplaySize: 
+        // balloon.setDisplaySize(baseSize * (balloon.width / balloon.height), baseSize); 
+        // nhưng cách setScale gọn hơn)
+
+        balloon.setInteractive();
+        container.add(balloon);
+
+        // --- SỬA PHẦN ITEM (Để item cũng không bị méo) ---
+        if (itemKey) {
+            const item = this.add.sprite(0, -baseSize * 0.1, itemKey);
+            
+            // Item chỉ nên to bằng 50% quả bóng
+            const targetItemHeight = baseSize * 0.5;
+            const itemScale = targetItemHeight / item.height;
+            item.setScale(itemScale);
+
+            container.add(item);
+        }
+
+        return container;
+    }
+
+    handleWrong(container: Phaser.GameObjects.Container) {
+        try { this.sound.play('wrong'); } catch {}
+        
+        // Hiệu ứng rung lắc báo sai
+        this.tweens.add({
+            targets: container,
+            x: '+=10',
+            duration: 50,
+            yoyo: true,
+            repeat: 3
+        });
+    }
+
+    handleCorrect(container: Phaser.GameObjects.Container, itemName: string) {
+        // Tắt tương tác để tránh click đúp
+        container.each((child: any) => { if(child.disableInteractive) child.disableInteractive(); });
+
+        try { this.sound.play(`sound_${itemName}`); } catch {}
+        
+        // Hiệu ứng nổ/biến mất
+        this.tweens.add({
+            targets: container,
+            scaleX: 1.2,
+            scaleY: 1.2,
+            alpha: 0,
+            duration: 200,
+            onComplete: () => container.destroy()
+        });
+
+        this.increaseScore();
+    }
+
+    increaseScore() {
+        if (this.state.score < this.state.maxScore) {
+            this.state.score++;
+            this.updateScoreBar();
+        }
+    }
+
+    updateScoreBar() {
+        const maxWidth = this.scoreContainer.getData('maxWidth');
+        const height = this.scoreContainer.getData('height');
+        
+        const ratio = this.state.score / this.state.maxScore;
+        const newWidth = maxWidth * ratio;
+        const startX = -maxWidth / 2;
+        
+        // Tween thanh điểm chạy mượt
+        this.tweens.add({
+            targets: { val: this.currentBarWidth },
+            val: newWidth,
+            duration: 300,
+            onUpdate: (_tween: any, target: any) => {
+                this.barFill.clear();
+                this.barFill.fillStyle(0x4CAF50, 1);
+                this.barFill.fillRoundedRect(startX, -height / 2, target.val, height, height / 2);
+                this.iconO.x = startX + target.val;
+            },
+            onComplete: () => {
+                this.currentBarWidth = newWidth;
+                if (this.state.score >= this.state.maxScore) {
+                    this.winGame();
+                }
+            }
+        });
+    }
+
+    winGame() {
+        this.state.isPlaying = false;
+        if (this.spawnTimer) this.spawnTimer.remove();
+        
+        hideGameButtons();
+        // Delay chút rồi chuyển scene
+        this.time.delayedCall(500, () => {
+             this.scene.start('EndGameScene'); // Hoặc EndScene tùy config router của bạn
+        });
+    }
+
+    restartLevel() {
+        this.sound.stopAll();
+        this.scene.restart();
+    }
 }

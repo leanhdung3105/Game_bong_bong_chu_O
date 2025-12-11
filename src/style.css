@@ -5,33 +5,29 @@ body {
     padding: 0;
     width: 100%;
     height: 100%;
-    background-color: #000000; /* Màu nền đen khi load */
-    overflow: hidden;
+    background-color: #000000;
+    overflow: hidden; /* Chặn thanh cuộn tuyệt đối */
 }
 
 #game-container {
-    position: relative;
-    width: 100%;
-    height: 100%;
-    display: block; /* Để Phaser tự quản lý layout */
+    position: absolute; /* Đổi thành absolute để ghim chặt */
+    top: 0;
+    left: 0;
+    width: 100vw;  /* Chiều rộng khung nhìn */
+    height: 100vh; /* Chiều cao khung nhìn */
+    display: block;
     touch-action: none;
     background: transparent;
-}
-
-/* Khi thêm class này từ `EndgameScene`, tạo lớp mờ tối phủ lên canvas */
-.dim-overlay::after {
-    content: '';
-    position: absolute;
-    inset: 0; /* top:0; right:0; bottom:0; left:0 */
-    /* Bright overlay: nhẹ nhàng làm sáng toàn bộ canvas thay vì làm tối */
-    background: rgba(255, 255, 255, 0.18);
-    pointer-events: none;
-    z-index: 5000;
+    z-index: 1;
 }
 
 canvas {
     display: block;
+    width: 100% !important;
+    height: 100% !important;
 }
+
+/* ... Các phần style khác giữ nguyên ... */
 
 /* --- MÀN HÌNH CẢNH BÁO (KÍNH MỜ) --- */
 #rotate-msg {
