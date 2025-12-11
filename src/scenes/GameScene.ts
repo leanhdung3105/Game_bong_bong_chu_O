@@ -10,7 +10,6 @@ interface GameState {
 
 export default class GameScene extends Phaser.Scene {
     // --- PROPERTIES ---
-    private bg!: Phaser.GameObjects.Image;
     private boy!: Phaser.GameObjects.Sprite;
     private hand!: Phaser.GameObjects.Sprite;
     
@@ -47,7 +46,7 @@ export default class GameScene extends Phaser.Scene {
 
     preload() {
         // Load Assets (Giữ nguyên từ code cũ)
-        this.load.image('background', 'assets/images/bg.webp');
+        //this.load.image('background', 'assets/images/bg.webp');
         this.load.image('boy1', 'assets/images/boy1.webp');
         this.load.image('boy2', 'assets/images/boy2.webp');
         this.load.image('banner', 'assets/images/banner.webp');
@@ -71,7 +70,7 @@ export default class GameScene extends Phaser.Scene {
     create() {
         (window as any).gameScene = this;
         
-        this.createBackground();
+        //this.createBackground();
         this.createBanner();
         this.createBoy();
         this.createScoreBar();
@@ -80,17 +79,6 @@ export default class GameScene extends Phaser.Scene {
         this.startTutorial();
 
         showGameButtons();
-    }
-
-    // Tách nhỏ các hàm create để code gọn hơn
-    private createBackground() {
-        const w = this.getW();
-        const h = this.getH();
-        this.bg = this.add.image(w / 2, h / 2, 'background').setOrigin(0.5);
-        
-        // Logic Cover (Tràn viền)
-        const scale = Math.max(w / this.bg.width, h / this.bg.height);
-        this.bg.setScale(scale);
     }
 
     private createBanner() {
@@ -249,7 +237,7 @@ export default class GameScene extends Phaser.Scene {
         this.tweens.add({
             targets: container,
             y: -200, // Bay quá đầu màn hình
-            duration: Phaser.Math.Between(4000, 6000), // Tốc độ ngẫu nhiên
+            duration: Phaser.Math.Between(6000, 8000), // Tốc độ ngẫu nhiên
             ease: 'Sine.easeInOut',
             onComplete: () => {
                 container.destroy();
@@ -274,13 +262,9 @@ export default class GameScene extends Phaser.Scene {
         // --- SỬA PHẦN BÓNG ---
         const balloon = this.add.sprite(0, 0, balloonKey);
         
-        // Cách 1: Tính scale dựa trên chiều cao, chiều rộng sẽ tự đi theo
+        // Tính scale dựa trên chiều cao, chiều rộng sẽ tự đi theo
         const scale = baseSize / balloon.height;
         balloon.setScale(scale); 
-        
-        // (Hoặc Cách 2 nếu bạn vẫn muốn dùng setDisplaySize: 
-        // balloon.setDisplaySize(baseSize * (balloon.width / balloon.height), baseSize); 
-        // nhưng cách setScale gọn hơn)
 
         balloon.setInteractive();
         container.add(balloon);

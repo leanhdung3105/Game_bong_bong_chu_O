@@ -14,8 +14,8 @@ declare global {
 // --- 1. CẤU HÌNH GAME (Theo cấu trúc mẫu: FIT, 1280x720) ---
 const config: Phaser.Types.Core.GameConfig = {
     type: Phaser.AUTO,
-    width: 1280,
-    height: 720,
+    width: 1920,
+    height: 1080,
     parent: 'game-container',
     scene: [GameScene, EndGameScene],
     backgroundColor: 'transparent',

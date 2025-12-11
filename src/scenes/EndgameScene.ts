@@ -2,8 +2,6 @@ import Phaser from 'phaser';
 import { hideGameButtons } from '../main'; 
 
 export default class EndGameScene extends Phaser.Scene {
-    private bg!: Phaser.GameObjects.Image;
-    private contentContainer!: Phaser.GameObjects.Container;
     private containerEl: HTMLElement | null = null;
     private confettiEvent?: Phaser.Time.TimerEvent;
     StopAllSounds: any;
@@ -11,8 +9,6 @@ export default class EndGameScene extends Phaser.Scene {
     constructor() { super('EndGameScene'); }
 
     preload() {
-        this.load.image('background', 'assets/images/bg.webp');
-
         this.load.image('icon', 'assets/images/ic_6.webp');
         
         this.load.image('banner_congrat', 'assets/images/banner_congrat.webp');
@@ -33,11 +29,6 @@ export default class EndGameScene extends Phaser.Scene {
     create() {
         const w = this.scale.width; 
         const h = this.scale.height;
-        // 1. BG TRÀN VIỀN
-        this.bg = this.add.image(0, 0, 'background').setOrigin(0.5);
-        
-        // 2. CONTAINER NỘI DUNG (Sẽ được scale fit màn hình)
-        this.contentContainer = this.add.container(0, 0);
 
         (this.scene.get('GameScene') as any)?.stopAllVoices?.();
         this.sound.play('complete');
@@ -143,15 +134,7 @@ export default class EndGameScene extends Phaser.Scene {
 
         hideGameButtons();
         this.createConfettiEffect();
-    }
-
-        // BG Cover (Luôn full màn hình)
-        this.bg.setPosition(w / 2, h / 2);
-        this.bg.setScale(Math.max(w / this.bg.width, h / this.bg.height));
-        // Content Container (Luôn full màn hình
-        this.contentContainer.setPosition(w / 2, h / 2);
-        this.contentContainer.setScale(Math.min(w / 1920, h / 1080));
-           
+    }      
     }
     
     private createConfettiEffect(): void {
