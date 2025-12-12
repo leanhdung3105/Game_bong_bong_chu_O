@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { showGameButtons, hideGameButtons } from '../main';
+import AudioManager from '../audio/AudioManager';
 
 // Định nghĩa Interface nếu muốn mở rộng Level sau này
 interface GameState {
@@ -17,7 +18,6 @@ export default class GameScene extends Phaser.Scene {
     private scoreContainer!: Phaser.GameObjects.Container;
     private barFill!: Phaser.GameObjects.Graphics;
     private iconO!: Phaser.GameObjects.Container;
-    
     // Logic Variables
     private state: GameState = { score: 0, maxScore: 2, isPlaying: false };
     private currentBarWidth: number = 0;
@@ -46,24 +46,24 @@ export default class GameScene extends Phaser.Scene {
 
     preload() {
         // Load Assets (Giữ nguyên từ code cũ)
-        //this.load.image('background', 'assets/images/bg.webp');
-        this.load.image('boy1', 'assets/images/boy1.webp');
-        this.load.image('boy2', 'assets/images/boy2.webp');
-        this.load.image('banner', 'assets/images/banner.webp');
-        this.load.image('hand', 'assets/images/hand.webp');
-        this.load.image('popup_win', 'assets/images/popup_win.webp');
+        this.load.image('boy1', 'assets/images/boy1.png');
+        this.load.image('boy2', 'assets/images/boy2.png');
+        this.load.image('banner', 'assets/images/banner.png');
+        this.load.image('hand', 'assets/images/hand.png');
+        this.load.image('popup_win', 'assets/images/popup_win.png');
         
         // Audio
-        this.load.audio('instruction', 'assets/audio/instruction.ogg');
-        this.load.audio('wrong', 'assets/audio/wrong.ogg');
-        this.load.audio('pop', 'assets/audio/tieng_no.ogg');
+        this.load.audio('instruction', 'assets/audio/instruction.mp3');
+        this.load.audio('wrong', 'assets/audio/wrong.mp3');
+        this.load.audio('pop', 'assets/audio/tieng_no.mp3');
 
         // Loop load items & balloons
-        this.balloonColors.forEach(c => this.load.image(`balloon_${c}`, `assets/images/balloon_${c}.webp`));
+        this.balloonColors.forEach(c => this.load.image(`balloon_${c}`, `assets/images/balloon_${c}.png`));
         this.items.forEach(i => {
-            this.load.image(`item_${i}`, `assets/images/${i}.webp`);
-            this.load.audio(`sound_${i}`, `assets/audio/${i}.ogg`);
+            this.load.image(`item_${i}`, `assets/images/${i}.png`);
+            this.load.audio(`sound_${i}`, `assets/audio/${i}.mp3`);
         });
+        AudioManager.loadAll();
     }
 
     // --- 3. CREATE UI & SCENE ---
@@ -229,16 +229,27 @@ export default class GameScene extends Phaser.Scene {
         
         // Vị trí xuất phát: Random X (trừ lề 10%), Y ở dưới đáy màn hình
         const startX = Phaser.Math.Between(this.getW() * 0.1, this.getW() * 0.9);
-        const startY = this.getH() + 200;
+        const startY = this.getH() - 150;
         
         container.setPosition(startX, startY);
+
+        container.setScale(0);
+
+        // Tween 1: Phóng to ra (Hiệu ứng nảy)
+        this.tweens.add({
+            targets: container,
+            scaleX: 1, // Phóng to về kích thước gốc
+            scaleY: 1,
+            duration: 200, // Mất 0.2 giây để phình to ra
+            ease: 'Back.easeOut' // Hiệu ứng đàn hồi (hơi phình quá rồi thu lại)
+        });
 
         // Hiệu ứng bay lên bằng Tween (thay vì Physics để mượt hơn trên mọi màn hình)
         this.tweens.add({
             targets: container,
-            y: -200, // Bay quá đầu màn hình
-            duration: Phaser.Math.Between(6000, 8000), // Tốc độ ngẫu nhiên
-            ease: 'Sine.easeInOut',
+            y: 0 + this.getH() * 0.1, // Bay quá đầu màn hình
+            duration: Phaser.Math.Between(4000,5000), // Tốc độ ngẫu nhiên
+            ease: 'Linear',
             onComplete: () => {
                 container.destroy();
             }

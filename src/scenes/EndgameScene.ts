@@ -9,31 +9,28 @@ export default class EndGameScene extends Phaser.Scene {
     constructor() { super('EndGameScene'); }
 
     preload() {
-        this.load.image('icon', 'assets/images/ic_6.webp');
+        this.load.image('icon', 'assets/images/ic_6.png');
         
-        this.load.image('banner_congrat', 'assets/images/banner_congrat.webp');
+        this.load.image('banner_congrat', 'assets/images/banner_congrat.png');
 
-        this.load.image('btn_reset', 'assets/images/btn_reset.webp'); 
+        this.load.image('btn_reset', 'assets/images/btn_reset.png'); 
 
-        this.load.image('btn_exit', 'assets/images/btn_exit.webp');
+        this.load.image('btn_exit', 'assets/images/btn_exit.png');
 
-        this.load.audio('complete', 'assets/audio/complete.ogg');
+        this.load.audio('complete', 'assets/audio/complete.mp3');
 
-        this.load.audio('fireworks', 'assets/audio/fireworks.ogg');
+        this.load.audio('fireworks', 'assets/audio/fireworks.mp3');
 
-        this.load.audio('applause', 'assets/audio/applause.ogg');
+        this.load.audio('applause', 'assets/audio/applause.mp3');
 
-        this.load.audio('sfx_click', 'assets/audio/click.ogg');
+        this.load.audio('sfx_click', 'assets/audio/click.mp3');
     }
 
     create() {
         const w = this.scale.width; 
         const h = this.scale.height;
-
-        (this.scene.get('GameScene') as any)?.stopAllVoices?.();
+        
         this.sound.play('complete');
-        this.containerEl = document.getElementById('game-container');
-        if (this.containerEl) this.containerEl.classList.add('dim-overlay');
 
         this.time.delayedCall(2000, () => {
             this.sound.play('fireworks');
@@ -77,7 +74,8 @@ export default class EndGameScene extends Phaser.Scene {
         const spacing = 250 * btnScale;
         
         // 3. Nút chơi lại (Bên trái)
-        const replayBtn = this.add.image(w / 2 - spacing, h / 2 + h * 0.2, 'btn_reset')
+        const replayBtn = this.add
+            .image(w / 2 - spacing, h / 2 + h * 0.2, 'btn_reset')
             .setOrigin(0.5)
             .setScale(btnScale)
             .setDepth(101)
@@ -91,7 +89,8 @@ export default class EndGameScene extends Phaser.Scene {
         });
 
         // 4. Nút Exit (Bên phải)
-        const exitBtn = this.add.image(w / 2 + spacing, h / 2 + h * 0.2, 'btn_exit')
+        const exitBtn = this.add
+            .image(w / 2 + spacing, h / 2 + h * 0.2, 'btn_exit')
             .setOrigin(0.5)
             .setScale(btnScale)
             .setDepth(101)
