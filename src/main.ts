@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import GameScene from './scenes/GameScene';
 import EndGameScene  from './scenes/EndgameScene';
+import StartScene from './scenes/StartGameScene';
 import { initRotateOrientation } from './rotateOrientation';
 
 declare global {
@@ -12,10 +13,10 @@ declare global {
 // --- CẤU HÌNH GAME (Theo cấu trúc mẫu: FIT) ---
 const config: Phaser.Types.Core.GameConfig = {
     type: Phaser.AUTO,
-    width: 1080,
+    width: 1280,
     height: 720,
     parent: 'game-container',
-    scene: [GameScene, EndGameScene],
+    scene: [StartScene, GameScene, EndGameScene],
     backgroundColor: '#ffffff',
     scale: {
         mode: Phaser.Scale.FIT,       // Dùng FIT để co giãn giữ tỉ lệ

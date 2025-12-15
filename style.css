@@ -14,8 +14,7 @@ body {
     display: flex;
     justify-content: center;
     align-items: center;
-    touch-action: none;
-    background: url('./public/assets/images/bg.jpg'); /* màu nền khi canvas nhỏ hơn màn hình */
+    touch-action: none;/* màu nền khi canvas nhỏ hơn màn hình */
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
@@ -26,7 +25,28 @@ canvas {
     margin-left: 0 !important;
 }
 
-/* ... Các phần style khác giữ nguyên ... */
+/* 2. THÊM đoạn style mới cho layer nền */
+.bg-layer {
+    position: absolute;
+    inset: 0; /* Full màn hình */
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    opacity: 0; /* Mặc định ẩn */
+    transition: opacity 0.5s ease-in-out; /* Hiệu ứng mượt trong 0.5s */
+    pointer-events: none; /* Để không chặn click vào game */
+    z-index: 0; /* Nằm dưới cùng */
+}
+
+.bg-layer.visible {
+    opacity: 1; /* Khi có class này sẽ hiện lên */
+}
+
+/* Canvas game nằm trên 2 bg */
+#game-container > canvas {
+    position: relative;
+    z-index: 1;
+}
 
 /* --- MÀN HÌNH CẢNH BÁO (KÍNH MỜ) --- */
 #rotate-msg {

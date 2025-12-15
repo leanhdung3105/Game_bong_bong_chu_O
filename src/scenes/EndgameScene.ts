@@ -9,9 +9,9 @@ export default class EndGameScene extends Phaser.Scene {
     constructor() { super('EndGameScene'); }
 
     preload() {
-        this.load.image('icon', 'assets/images/ic_6.png');
+        this.load.image('icon', 'assets/images/icon.webp');
         
-        this.load.image('banner_congrat', 'assets/images/banner_congrat.png');
+        this.load.image('banner_congrat', 'assets/images/banner_congrat.webp');
 
         this.load.image('btn_reset', 'assets/images/btn_reset.png'); 
 

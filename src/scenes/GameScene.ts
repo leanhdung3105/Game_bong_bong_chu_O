@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { showGameButtons, hideGameButtons } from '../main';
 import AudioManager from '../audio/AudioManager';
+import { changeBackground } from './utils/backgroundManager';
 
 // Định nghĩa Interface nếu muốn mở rộng Level sau này
 interface GameState {
@@ -40,7 +41,7 @@ export default class GameScene extends Phaser.Scene {
 
     // --- 2. LIFECYCLE: INIT & PRELOAD ---
     init() {
-        this.state = { score: 0, maxScore: 10, isPlaying: false };
+        this.state = { score: 0, maxScore: 2, isPlaying: false };
         this.currentBarWidth = 0;
     }
 
@@ -51,6 +52,7 @@ export default class GameScene extends Phaser.Scene {
         this.load.image('banner', 'assets/images/banner.png');
         this.load.image('hand', 'assets/images/hand.png');
         this.load.image('popup_win', 'assets/images/popup_win.png');
+        this.load.image('icon_balloon', 'assets/images/icon_ball.png');
         
         // Audio
         this.load.audio('instruction', 'assets/audio/instruction.mp3');
@@ -71,6 +73,7 @@ export default class GameScene extends Phaser.Scene {
         (window as any).gameScene = this;
         
         //this.createBackground();
+        changeBackground('assets/images/bg_game.jpg');
         this.createBanner();
         this.createBoy();
         this.createScoreBar();
@@ -108,41 +111,20 @@ export default class GameScene extends Phaser.Scene {
             });
         }
         
-       // 2. Tạo Sprite
-        // pctX(0.2): Vị trí ngang (20% màn hình từ trái sang)
-        // pctY(0.9): Vị trí dọc (Chân chạm đất ở 80% màn hình)
-        this.boy = this.add.sprite(this.pctX(0.2), this.pctY(0.9), 'boy1');
+        this.boy = this.add.sprite(this.pctX(0.5), this.pctY(0.95), 'boy1').setScale(0.5);
         
         // --- BƯỚC QUAN TRỌNG: GHIM CHÂN ---
         this.boy.setOrigin(0.5, 1); 
-
-        // --- BƯỚC SỬA LỖI GIÃN HÌNH ---
-        
-        // A. Tính chiều cao mong muốn (35% chiều cao màn hình)
-        const targetHeight = this.getH() * 0.35; 
-
-        // B. Tính ra tỉ lệ Scale chuẩn
-        // (Chỉ quan tâm chiều cao, không quan tâm chiều rộng màn hình)
-        const scale = targetHeight / this.boy.height;
-
-        // C. Áp dụng tỉ lệ này cho CẢ HAI CHIỀU
-        // (Đây là mấu chốt: scaleX và scaleY phải GIỐNG HỆT NHAU)
-        this.boy.setScale(scale, scale); 
-
-        // --- LƯU Ý CỰC KỲ QUAN TRỌNG ---
-        // Tuyệt đối KHÔNG được dùng dòng lệnh dưới đây nữa (hãy xóa nó đi nếu còn):
-        // this.boy.setDisplaySize(...); 
-        
         // 3. Chạy animation
         this.boy.play('run');
     }
 
     private createScoreBar() {
         const w = this.getW();
-        const barWidth = w * 0.5; // Thanh bar dài 50% màn hình
-        const barHeight = this.getH() * 0.06;
+        const barWidth = w * 0.1; 
+        const barHeight = this.getH() * 0.04; // 
 
-        this.scoreContainer = this.add.container(this.pctX(0.5), this.pctY(0.9));
+        this.scoreContainer = this.add.container(this.pctX(0.1), this.pctY(0.95));
 
         // Nền bar
         const bgBar = this.add.graphics();
@@ -153,18 +135,18 @@ export default class GameScene extends Phaser.Scene {
         
         // Icon tròn
         this.iconO = this.add.container(-barWidth / 2, 0);
-        const circleSize = barHeight * 0.8;
-        const circle = this.add.circle(0, 0, circleSize, 0xFFFFFF).setStrokeStyle(3, 0xFF4444);
-        const text = this.add.text(0, 0, 'O', { 
-            fontSize: `${Math.round(circleSize)}px`, 
-            color: '#FF4444', 
-            fontFamily: 'Arial', 
-            fontStyle: 'bold' 
-        }).setOrigin(0.5);
-        
-        this.iconO.add([circle, text]);
-        this.scoreContainer.add([bgBar, this.barFill, this.iconO]);
+        const iconImg = this.add.image(0, 0, 'icon_balloon');
 
+        // Logic: Muốn icon to hơn chiều cao thanh bar một chút (ví dụ gấp 1.5 lần) cho đẹp
+        const targetSize = barHeight * 1.5; 
+        const scale = targetSize / iconImg.height; // Tính tỉ lệ
+        iconImg.setScale(scale);
+
+        // 4. Thêm ảnh vào Container
+        this.iconO.add(iconImg);
+
+        // 5. Thêm tất cả vào Container lớn (GIỮ NGUYÊN)
+        this.scoreContainer.add([bgBar, this.barFill, this.iconO]);
         // Lưu thông số để dùng khi update điểm
         this.scoreContainer.setData('maxWidth', barWidth);
         this.scoreContainer.setData('height', barHeight);
@@ -176,7 +158,7 @@ export default class GameScene extends Phaser.Scene {
         try { this.sound.play('instruction'); } catch {}
 
         // Tạo bóng tutorial ở giữa màn hình
-        const balloonContainer = this.createBalloonContainer('balloon_yellow', 'item_stonke');
+        const balloonContainer = this.createBalloonContainer('balloon_red', 'item_flower');
         balloonContainer.setPosition(this.pctX(0.5), this.pctY(0.4));
         
         // Tay chỉ dẫn
