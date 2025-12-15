@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { hideGameButtons } from '../main'; 
+import AudioManager from '../audio/AudioManager';
 
 export default class EndGameScene extends Phaser.Scene {
     private containerEl: HTMLElement | null = null;
@@ -16,25 +17,18 @@ export default class EndGameScene extends Phaser.Scene {
         this.load.image('btn_reset', 'assets/images/btn_reset.png'); 
 
         this.load.image('btn_exit', 'assets/images/btn_exit.png');
-
-        this.load.audio('complete', 'assets/audio/complete.mp3');
-
-        this.load.audio('fireworks', 'assets/audio/fireworks.mp3');
-
-        this.load.audio('applause', 'assets/audio/applause.mp3');
-
-        this.load.audio('sfx_click', 'assets/audio/click.mp3');
     }
 
     create() {
         const w = this.scale.width; 
         const h = this.scale.height;
         
-        this.sound.play('complete');
+        AudioManager.loadAll();
+        AudioManager.play('complete');
 
         this.time.delayedCall(2000, () => {
-            this.sound.play('fireworks');
-            this.sound.play('applause');
+            AudioManager.play('fireworks');
+            AudioManager.play('applause');
         });
         
 
@@ -82,8 +76,8 @@ export default class EndGameScene extends Phaser.Scene {
             .setInteractive({ useHandCursor: true });
         
         replayBtn.on('pointerdown', () => {
-            this.sound.play('sfx_click');
-            this.StopAllSounds;
+            AudioManager.play('sfx_click');
+            AudioManager.stopAll();
             this.stopConfetti();
             this.scene.start('GameScene');
         });

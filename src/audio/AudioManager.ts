@@ -1,5 +1,3 @@
-// src/audio/AudioManager.ts
-
 import { Howl, Howler } from 'howler';
 
 // 1. Định nghĩa Interface cho cấu hình âm thanh
@@ -12,6 +10,26 @@ interface SoundConfig {
 // 2. Đường dẫn gốc (Đảm bảo đường dẫn này đúng trong public folder của Vite)
 const BASE_PATH = 'assets/audio/'; // Sử dụng '/' cho Vite public folder
 
+const GAME_ITEM_IDS = [
+    'grape', 
+    'bee', 
+    'flower', 
+    'stonke', 
+    'dog', 
+    'letter_o', 
+    'cow', 
+    'rabbit', 
+    'whistle'
+];
+
+// Tạo đối tượng chứa các âm thanh vật phẩm bằng vòng lặp/reduce
+const ITEM_SOUNDS: Record<string, SoundConfig> = GAME_ITEM_IDS.reduce((acc, itemId) => {
+    // Key sẽ là tên vật phẩm, ví dụ: 'grape'
+    // File Path sẽ là: assets/audio/grape.mp3 (Đúng như bạn đã định nghĩa)
+    acc[itemId] = { src: `${BASE_PATH}${itemId}.mp3`, volume: 0.7 }; 
+    return acc;
+}, {} as Record<string, SoundConfig>);
+
 // 3. Ánh xạ ID âm thanh (key) và cấu hình chi tiết
 const SOUND_MAP: Record<string, SoundConfig> = {
     // ---- SFX Chung ----
@@ -19,28 +37,12 @@ const SOUND_MAP: Record<string, SoundConfig> = {
     'sfx-wrong': { src: `${BASE_PATH}wrong.mp3`, volume: 0.8 },
     'sfx-click': { src: `${BASE_PATH}click.mp3`, volume: 0.8 },
     'voice-rotate': { src: `${BASE_PATH}rotate.mp3`, volume: 0.8 },
+    'instruction': { src: `${BASE_PATH}instruction.mp3`, volume: 1.0 },
+    'complete': { src: `${BASE_PATH}complete.mp3`, volume: 1.0 },
+    'fireworks': { src: `${BASE_PATH}fireworks.mp3`, volume: 1.0 },
+    'applause': { src: `${BASE_PATH}applause.mp3`, volume: 1.0 },
 
-    // ---- Correct Answers Voice Prompts ----
-    correct_answer_1: {
-        src: `${BASE_PATH}sfx/correct_answer_1.mp3`,
-        volume: 1.0,
-    },
-    correct_answer_2: {
-        src: `${BASE_PATH}sfx/correct_answer_2.mp3`,
-        volume: 1.0,
-    },
-    correct_answer_3: {
-        src: `${BASE_PATH}sfx/correct_answer_3.mp3`,
-        volume: 1.0,
-    },
-    correct_answer_4: {
-        src: `${BASE_PATH}sfx/correct_answer_4.mp3`,
-        volume: 1.0,
-    },
-
-    complete: { src: `${BASE_PATH}complete.mp3`, volume: 1.0 },
-    fireworks: { src: `${BASE_PATH}fireworks.mp3`, volume: 1.0 },
-    applause: { src: `${BASE_PATH}applause.mp3`, volume: 1.0 },
+    ...ITEM_SOUNDS // <--- ĐÃ THÊM DÒNG NÀY
 };
 
 class AudioManager {

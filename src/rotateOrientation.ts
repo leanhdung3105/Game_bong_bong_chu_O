@@ -1,6 +1,6 @@
 // src/rotateOrientation.ts
 import Phaser from 'phaser';
-import audioManager from './audio/AudioManager';
+import AudioManager from './audio/AudioManager';
 
 // ================== STATE CHUNG ==================
 let rotateOverlay: HTMLDivElement | null = null;
@@ -74,7 +74,7 @@ export function playVoiceLocked(
         lastRotateVoiceTime = now;
 
         try {
-            const am = audioManager as any;
+            const am = AudioManager as any;
 
             // dừng toàn bộ âm thanh game (bgm + sfx + voice)
             if (typeof am.stopAll === 'function') {
@@ -89,7 +89,7 @@ export function playVoiceLocked(
 
         currentVoiceKey = null;
 
-        const id = audioManager.play('voice-rotate');
+        const id = AudioManager.play('voice-rotate');
         if (id === undefined) {
             console.warn(
                 `[Rotate] Không phát được audio key="voice-rotate" (Howler).`
@@ -109,11 +109,11 @@ export function playVoiceLocked(
     if (currentVoiceKey && curPri >= newPri) return; // không cho voice ưu tiên thấp đè
 
     if (currentVoiceKey) {
-        audioManager.stop(currentVoiceKey);
+        AudioManager.stop(currentVoiceKey);
         currentVoiceKey = null;
     }
 
-    const id = audioManager.play(key);
+    const id = AudioManager.play(key);
     if (id === undefined) {
         console.warn(`[Rotate] Không phát được audio key="${key}" (Howler).`);
         return;
@@ -241,7 +241,7 @@ function updateRotateHint() {
     // === Khi overlay TẮT (xoay ngang lại) ===
     if (overlayTurnedOff) {
         if (currentVoiceKey === 'voice-rotate') {
-            audioManager.stop('voice-rotate');
+            AudioManager.stop('voice-rotate');
             currentVoiceKey = null;
         }
     }

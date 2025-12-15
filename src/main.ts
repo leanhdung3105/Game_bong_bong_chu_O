@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import GameScene from './scenes/GameScene';
 import EndGameScene  from './scenes/EndgameScene';
-import StartScene from './scenes/StartGameScene';
+//import StartScene from './scenes/StartGameScene';
 import { initRotateOrientation } from './rotateOrientation';
 
 declare global {
@@ -16,7 +16,7 @@ const config: Phaser.Types.Core.GameConfig = {
     width: 1280,
     height: 720,
     parent: 'game-container',
-    scene: [StartScene, GameScene, EndGameScene],
+    scene: [GameScene, EndGameScene],
     backgroundColor: '#ffffff',
     scale: {
         mode: Phaser.Scale.FIT,       // Dùng FIT để co giãn giữ tỉ lệ
@@ -71,5 +71,5 @@ window.addEventListener('resize', updateUIButtonScale);
 window.addEventListener('orientationchange', updateUIButtonScale);
 
 document.getElementById('btn-reset')?.addEventListener('click', () => {
-    window.gameScene?.restartLevel();
+    window.gameScene?.scene.restart();
 });

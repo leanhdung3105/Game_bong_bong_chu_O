@@ -3,11 +3,30 @@ import { showGameButtons, hideGameButtons } from '../main';
 import AudioManager from '../audio/AudioManager';
 import { changeBackground } from './utils/backgroundManager';
 
-// Định nghĩa Interface nếu muốn mở rộng Level sau này
+// --- 1. DATA GỌN NHẸ ---
+interface ItemData {
+    id: string;   
+    name: string;
+}
+
+const GAME_ITEMS: Record<string, ItemData> = {
+    'grape':   { id: 'grape',   name: 'Quả nho' },
+    'bee':     { id: 'bee',     name: 'Con ong' },
+    'flower':  { id: 'flower',  name: 'Bông hoa'},
+    'stonke':  { id: 'stonke',  name: 'Cục đá'  },
+    'dog':     { id: 'dog',     name: 'Con chó' },
+    'letter_o':{ id: 'letter_o',name: 'Chữ O'   },
+    'cow':     { id: 'cow',     name: 'Con bò'  },
+    'rabbit':  { id: 'rabbit',  name: 'Con thỏ' },
+    'whistle': { id: 'whistle', name: 'Cái còi' },
+    'empty':   { id: 'empty',   name: 'Bóng rỗng' }
+};
+
 interface GameState {
     score: number;
     maxScore: number;
     isPlaying: boolean;
+    isPaused: boolean;
 }
 
 export default class GameScene extends Phaser.Scene {
@@ -15,348 +34,410 @@ export default class GameScene extends Phaser.Scene {
     private boy!: Phaser.GameObjects.Sprite;
     private hand!: Phaser.GameObjects.Sprite;
     
+    // Score Bar Variables
+    private scoreBarMask!: Phaser.GameObjects.Graphics;
+    private scoreBarFill!: Phaser.GameObjects.Sprite;
+    private maxScoreWidth: number = 0;
+
     // UI Elements
-    private scoreContainer!: Phaser.GameObjects.Container;
-    private barFill!: Phaser.GameObjects.Graphics;
-    private iconO!: Phaser.GameObjects.Container;
-    // Logic Variables
-    private state: GameState = { score: 0, maxScore: 2, isPlaying: false };
-    private currentBarWidth: number = 0;
+    private popupContainer!: Phaser.GameObjects.Container; 
+    
+    private state: GameState = { score: 0, maxScore: 5, isPlaying: false, isPaused: false };
     private spawnTimer?: Phaser.Time.TimerEvent;
-
-    // Config Assets
+    private activeTweens: Phaser.Tweens.Tween[] = [];
     private balloonColors = ['red', 'blue', 'green', 'yellow', 'purple'];
-    private items = ['grape', 'bee', 'flower', 'stonke', 'dog', 'letter_o', 'cow', 'rabbit', 'whistle'];
 
-    constructor() {
-        super('GameScene');
-    }
+    constructor() { super('GameScene'); }
 
-    // --- 1. HELPER METHODS (Responsive) ---
-    // Thay thế cho logic handleResize phức tạp cũ
     private getW() { return this.scale.width; }
     private getH() { return this.scale.height; }
     private pctX(p: number) { return this.getW() * p; }
     private pctY(p: number) { return this.getH() * p; }
 
-    // --- 2. LIFECYCLE: INIT & PRELOAD ---
     init() {
-        this.state = { score: 0, maxScore: 2, isPlaying: false };
-        this.currentBarWidth = 0;
+        this.state = { score: 0, maxScore: 5, isPlaying: false, isPaused: false };
+        this.activeTweens = [];
     }
 
     preload() {
-        // Load Assets (Giữ nguyên từ code cũ)
+        this.load.image('text_banner', 'assets/images/text_banner_game.png');
+        this.load.image('bar_frame', 'assets/images/Thanh_diem.png');      
+        this.load.image('bar_fill', 'assets/images/thanh_diem_full.png');
         this.load.image('boy1', 'assets/images/boy1.png');
         this.load.image('boy2', 'assets/images/boy2.png');
         this.load.image('banner', 'assets/images/banner.png');
         this.load.image('hand', 'assets/images/hand.png');
-        this.load.image('popup_win', 'assets/images/popup_win.png');
+        this.load.image('board', 'assets/images/board.png'); 
         this.load.image('icon_balloon', 'assets/images/icon_ball.png');
-        
-        // Audio
-        this.load.audio('instruction', 'assets/audio/instruction.mp3');
-        this.load.audio('wrong', 'assets/audio/wrong.mp3');
-        this.load.audio('pop', 'assets/audio/tieng_no.mp3');
 
-        // Loop load items & balloons
         this.balloonColors.forEach(c => this.load.image(`balloon_${c}`, `assets/images/balloon_${c}.png`));
-        this.items.forEach(i => {
-            this.load.image(`item_${i}`, `assets/images/${i}.png`);
-            this.load.audio(`sound_${i}`, `assets/audio/${i}.mp3`);
+
+        Object.values(GAME_ITEMS).forEach(item => {
+            if (item.id === 'empty') return; // Bỏ qua bóng rỗng
+            this.load.image(`item_${item.id}`, `assets/images/${item.id}.png`); 
+            this.load.image(`text_${item.id}`, `assets/images/text_${item.id}.png`);
         });
+
         AudioManager.loadAll();
     }
 
-    // --- 3. CREATE UI & SCENE ---
     create() {
         (window as any).gameScene = this;
-        
-        //this.createBackground();
         changeBackground('assets/images/bg_game.jpg');
-        this.createBanner();
+
         this.createBoy();
-        this.createScoreBar();
-
-        // Bắt đầu Tutorial
-        this.startTutorial();
-
+        this.createScoreBar(); // Gọi hàm tạo thanh điểm Mask
+        this.createPopupUI(); 
+        this.createBannerAndTutorial();
+        
         showGameButtons();
     }
 
-    private createBanner() {
-        // Đặt banner ở 10% chiều cao màn hình
-        const banner = this.add.image(this.pctX(0.5), this.pctY(0.1), 'banner');
-        // Scale banner theo chiều rộng màn hình (ví dụ 60% chiều rộng)
-        const scaleFactor = (this.getW() * 0.6) / banner.width;
-        banner.setScale(scaleFactor);
-
-        this.add.text(this.pctX(0.5), this.pctY(0.1), 'BÉ HÃY CHỌN QUẢ BÓNG CÓ HÌNH NHÉ!', {
-            fontSize: `${Math.round(this.getH() * 0.04)}px`, // Font size responsive
-            fontFamily: 'Arial',
-            color: '#ffffff',
-            stroke: '#000',
-            strokeThickness: 4
-        }).setOrigin(0.5);
-    }
+    // --- SETUP UI ---
 
     private createBoy() {
-        // Tạo animation nếu chưa có
         if (!this.anims.exists('run')) {
-            this.anims.create({
-                key: 'run',
-                frames: [{ key: 'boy1' }, { key: 'boy2' }],
-                frameRate: 6,
-                repeat: -1
-            });
+            this.anims.create({ key: 'run', frames: [{ key: 'boy1' }, { key: 'boy2' }], frameRate: 4, repeat: -1 });
         }
-        
-        this.boy = this.add.sprite(this.pctX(0.5), this.pctY(0.95), 'boy1').setScale(0.5);
-        
-        // --- BƯỚC QUAN TRỌNG: GHIM CHÂN ---
-        this.boy.setOrigin(0.5, 1); 
-        // 3. Chạy animation
-        this.boy.play('run');
+        this.boy = this.add.sprite(this.pctX(0.5), this.pctY(0.95), 'boy1').setOrigin(0.5, 1);
     }
+
 
     private createScoreBar() {
-        const w = this.getW();
-        const barWidth = w * 0.1; 
-        const barHeight = this.getH() * 0.04; // 
+        // --- 1. CẤU HÌNH VỊ TRÍ ---
+        // Đặt ở góc dưới bên trái màn hình
+        const barX = this.pctX(0.12); // Cách lề trái một chút để chừa chỗ cho icon
+        const barY = this.pctY(0.9);  // Nằm ở dưới đáy (khoảng 90% chiều cao)
 
-        this.scoreContainer = this.add.container(this.pctX(0.1), this.pctY(0.95));
-
-        // Nền bar
-        const bgBar = this.add.graphics();
-        bgBar.fillStyle(0xCCCCCC, 1);
-        bgBar.fillRoundedRect(-barWidth / 2, -barHeight / 2, barWidth, barHeight, barHeight / 2);
-
-        this.barFill = this.add.graphics();
+        // --- 2. VẼ THANH ĐIỂM (Nằm dưới) ---
         
-        // Icon tròn
-        this.iconO = this.add.container(-barWidth / 2, 0);
-        const iconImg = this.add.image(0, 0, 'icon_balloon');
+        // A. Khung nền (Màu trắng/xám)
+        const barFrame = this.add.image(barX, barY, 'bar_frame').setOrigin(0, 0.5);
+        // setOrigin(0, 0.5): Điểm neo nằm ở cạnh trái, giữa chiều cao -> Giúp thanh dài ra sang phải dễ dàng
 
-        // Logic: Muốn icon to hơn chiều cao thanh bar một chút (ví dụ gấp 1.5 lần) cho đẹp
-        const targetSize = barHeight * 1.5; 
-        const scale = targetSize / iconImg.height; // Tính tỉ lệ
-        iconImg.setScale(scale);
+        // B. Thanh màu xanh (Đè lên khung)
+        this.scoreBarFill = this.add.sprite(barX, barY, 'bar_fill').setOrigin(0, 0.5);
 
-        // 4. Thêm ảnh vào Container
-        this.iconO.add(iconImg);
+        // Lưu lại chiều rộng gốc để tính toán phần trăm
+        this.maxScoreWidth = this.scoreBarFill.width;
 
-        // 5. Thêm tất cả vào Container lớn (GIỮ NGUYÊN)
-        this.scoreContainer.add([bgBar, this.barFill, this.iconO]);
-        // Lưu thông số để dùng khi update điểm
-        this.scoreContainer.setData('maxWidth', barWidth);
-        this.scoreContainer.setData('height', barHeight);
+        // C. Tạo MASK (Mặt nạ cắt thanh xanh)
+        this.scoreBarMask = this.make.graphics({});
+        this.scoreBarMask.fillStyle(0xffffff);
+        this.scoreBarMask.beginPath();
+        
+        // Vẽ hình chữ nhật mask ban đầu (width = 0 vì chưa có điểm)
+        // Lưu ý: Tọa độ Y phải trừ đi nửa chiều cao vì Origin của thanh bar là 0.5
+        this.scoreBarMask.fillRect(barX, barY - this.scoreBarFill.height / 2, 0, this.scoreBarFill.height);
+        
+        // Áp dụng mask
+        const mask = this.scoreBarMask.createGeometryMask();
+        this.scoreBarFill.setMask(mask);
+
+        // --- 3. VẼ ICON (Nằm trên cùng) ---
+        // Vẽ icon sau cùng để nó đè lên đầu thanh bar -> Tạo cảm giác nổi khối 3D như hình mẫu
+        const icon = this.add.image(barX - 10, barY, 'icon_balloon'); // Lùi lại 10px so với đầu thanh bar
+        
+        // Tự động chỉnh kích thước icon sao cho đẹp (bằng khoảng 1.5 lần chiều cao thanh bar)
+        // Bạn có thể sửa số 1.5 thành số khác nếu muốn icon to/nhỏ hơn
+        //const iconScale = (barFrame.height * 1.8) / icon.height; 
+        //icon.setScale(0.5);
     }
 
-    // --- 4. GAMEPLAY LOGIC ---
+    private createPopupUI() {
+        this.popupContainer = this.add.container(this.getW() / 2, this.getH() / 2).setDepth(1000).setVisible(false);
 
-    startTutorial() {
-        try { this.sound.play('instruction'); } catch {}
-
-        // Tạo bóng tutorial ở giữa màn hình
-        const balloonContainer = this.createBalloonContainer('balloon_red', 'item_flower');
-        balloonContainer.setPosition(this.pctX(0.5), this.pctY(0.4));
+        const bg = this.add.image(0, 0, 'board').setName('popup_board');
+        const scale = (this.getW() * 0.4) / bg.width; 
+        bg.setScale(scale);
         
-        // Tay chỉ dẫn
+        const icon = this.add.image(0, -50 * scale, 'item_grape').setName('popup_icon');
+        const textImg = this.add.image(0, bg.displayHeight * 0.25, 'text_grape').setName('popup_text_img');
+
+        this.popupContainer.add([bg, icon, textImg]);
+    }
+
+    // --- GAME LOGIC ---
+
+    private createBannerAndTutorial() {
+        const banner = this.add.image(this.pctX(0.5), this.pctY(0.1), 'banner').setName('banner'); //
+        banner.setScale((this.getW() * 0.6) / banner.width);
+
+        const bannerText = this.add.image(this.pctX(0.5), this.pctY(0.1), 'text_banner').setName('banner_text');
+        bannerText.setScale((this.getW() * 0.5) / bannerText.width);
+
+        try { AudioManager.play('instruction'); } catch (e) { }
+
+        const tutorialBalloon = this.createBalloonContainer('balloon_blue', 'letter_o');
+        tutorialBalloon.setPosition(this.pctX(0.5), this.pctY(0.4));
+        
         this.hand = this.add.sprite(this.pctX(0.55), this.pctY(0.55), 'hand');
-        this.hand.setDisplaySize(this.getW() * 0.08, this.getW() * 0.08); // Scale tay tương đối
+        this.hand.setDisplaySize(this.getW() * 0.08, this.getW() * 0.08);
+        
+        this.tweens.add({ targets: this.hand, x: this.pctX(0.52), y: this.pctY(0.45), duration: 800, yoyo: true, repeat: -1 });
 
-        // Animation tay
-        this.tweens.add({
-            targets: this.hand,
-            x: this.pctX(0.52),
-            y: this.pctY(0.45),
-            duration: 800,
-            yoyo: true,
-            repeat: -1
-        });
+        const hitArea = tutorialBalloon.getAt(0) as Phaser.GameObjects.Sprite;
+        hitArea.setInteractive({ useHandCursor: true });
 
-        // Click event cho tutorial
-        const hitArea = balloonContainer.getAt(0) as Phaser.GameObjects.Sprite; // Lấy cái bóng
         hitArea.once('pointerdown', () => {
-            balloonContainer.destroy();
-            this.hand.destroy();
-            try { this.sound.play('sound_stonke'); } catch {}
+            tutorialBalloon.destroy();
+            if (this.hand) this.hand.destroy();
+
+            this.tweens.add({ 
+                targets: [banner, bannerText], y: -100, alpha: 0, duration: 500,
+                onComplete: () => { banner.destroy(); bannerText.destroy(); }
+            });
             
-            // Bắt đầu game chính thức
+            if (this.boy) this.boy.play('run');
+
             this.state.isPlaying = true;
             this.startGameLoop();
         });
     }
 
     startGameLoop() {
-        // Spawn bóng mỗi giây
         this.spawnTimer = this.time.addEvent({
-            delay: 1000,
-            callback: this.spawnBalloon,
-            callbackScope: this,
-            loop: true
+            delay: 2000, callback: this.spawnBalloon, callbackScope: this, loop: true
         });
     }
+
+    // GameScene.ts
 
     spawnBalloon() {
-        if (!this.state.isPlaying) return;
+        if (!this.state.isPlaying || this.state.isPaused) return;
 
-        // Random màu và item
-        const color = Phaser.Utils.Array.GetRandom(this.balloonColors);
-        const hasItem = Math.random() < 0.6;
-        let itemName = null;
-        if (hasItem) itemName = Phaser.Utils.Array.GetRandom(this.items);
+        // --- 1. CHUẨN BỊ DATA CỦA 3 BÓNG (2 đúng, 1 rỗng) ---
+        const allItemKeys = Object.keys(GAME_ITEMS).filter(key => key !== 'empty');
+        const correctItems = Phaser.Utils.Array.Shuffle(allItemKeys).slice(0, 3); 
+        let spawnIDs = [...correctItems, 'empty'];
+        spawnIDs = Phaser.Utils.Array.Shuffle(spawnIDs);
 
-        const container = this.createBalloonContainer(`balloon_${color}`, hasItem ? `item_${itemName}` : null);
-        
-        // Vị trí xuất phát: Random X (trừ lề 10%), Y ở dưới đáy màn hình
-        const startX = Phaser.Math.Between(this.getW() * 0.1, this.getW() * 0.9);
-        const startY = this.getH() - 150;
-        
-        container.setPosition(startX, startY);
+        // --- 2. CẤU HÌNH 4 VỊ TRÍ X CỐ ĐỊNH (SLOTS) ---
+        const slotPositions = [
+            this.pctX(0.15), // Slot 1: 15%
+            this.pctX(0.40), // Slot 2: 40%
+            this.pctX(0.65), // Slot 3: 65%
+            this.pctX(0.85)  // Slot 4: 85%
+        ];
+        const shuffledSlots = Phaser.Utils.Array.Shuffle(slotPositions);
 
-        container.setScale(0);
+        // --- 2. XỬ LÝ 3 LẦN TẠO BÓNG ---
+        spawnIDs.forEach((itemID, index) => {
+            const color = Phaser.Utils.Array.GetRandom(this.balloonColors);
+            const container = this.createBalloonContainer(`balloon_${color}`, itemID, true); // Khởi tạo với scale=0
+            container.setData('itemID', itemID);
 
-        // Tween 1: Phóng to ra (Hiệu ứng nảy)
-        this.tweens.add({
-            targets: container,
-            scaleX: 1, // Phóng to về kích thước gốc
-            scaleY: 1,
-            duration: 200, // Mất 0.2 giây để phình to ra
-            ease: 'Back.easeOut' // Hiệu ứng đàn hồi (hơi phình quá rồi thu lại)
-        });
+            // Lấy kích thước ban đầu để tính toán vị trí bay
+            const ballSprite = container.getAt(0) as Phaser.GameObjects.Sprite;
+            const baseBallHeight = ballSprite.height * (this.getH() * 0.18 / ballSprite.height); // Chiều cao sau scale
 
-        // Hiệu ứng bay lên bằng Tween (thay vì Physics để mượt hơn trên mọi màn hình)
-        this.tweens.add({
-            targets: container,
-            y: 0 + this.getH() * 0.1, // Bay quá đầu màn hình
-            duration: Phaser.Math.Between(4000,5000), // Tốc độ ngẫu nhiên
-            ease: 'Linear',
-            onComplete: () => {
-                container.destroy();
-            }
-        });
+            // --- CẤU HÌNH VỊ TRÍ START/END ---
+            // Lấy vị trí X từ Slot cố định đã trộn
+            const base_X = shuffledSlots[index];
+            const startX = base_X + Phaser.Math.Between(-20, 20);
+            const startY = this.getH() + baseBallHeight/2; // Vị trí xuất hiện đột ngột (cách đáy 100px)
+            container.setPosition(startX, startY);
 
-        // Xử lý click
-        const balloonSprite = container.getAt(0) as Phaser.GameObjects.Sprite;
-        balloonSprite.on('pointerdown', () => {
-            if (hasItem) {
-                this.handleCorrect(container, itemName as string);
-            } else {
-                this.handleWrong(container);
-            }
+            const endY = baseBallHeight / 2 + baseBallHeight * 0.05; // Vị trí biến mất đột ngột (cách đỉnh 100px)
+            const flyDuration = Phaser.Math.Between(4000, 6000); 
+            const swingRange = 30; 
+            const swingToX = base_X + Phaser.Math.Between(-swingRange, swingRange);
+
+            // --- 3. TWEEN XUẤT HIỆN ĐẸP MẮT (POP IN) ---
+            const appearTween = this.tweens.add({
+                targets: container, 
+                scale: 1, // Phóng to lên kích thước thật
+                duration: 200,
+                ease: 'Back.Out', // Hiệu ứng nảy rất đẹp
+                onComplete: (tween, targets) => {
+                    const targetContainer = targets[0];
+                    
+                    // A. TWEEN BAY LÊN (Trục Y)
+                    const flyTween = this.tweens.add({
+                        targets: targetContainer, 
+                        y: endY, 
+                        duration: flyDuration, 
+                        ease: 'Linear',
+                        onComplete: (ft) => { 
+                            // DỌN DẸP SẠCH SẼ KHI KẾT THÚC
+                            const relatedTweens = this.activeTweens.filter(t => t.targets === targetContainer);
+                            relatedTweens.forEach(t => t.stop()); 
+                            
+                            this.activeTweens = this.activeTweens.filter(t => t.targets !== targetContainer);
+                            targetContainer.destroy(); 
+                        }
+                    });
+                    this.activeTweens.push(flyTween);
+
+                    // B. TWEEN LẮC LƯ (Trục X)
+                    const swingTween = this.tweens.add({
+                        targets: targetContainer,
+                        x: swingToX, 
+                        duration: 1200, 
+                        yoyo: true,
+                        repeat: -1,
+                        ease: 'Sine.easeInOut'
+                    });
+                    this.activeTweens.push(swingTween);
+
+                    // Xóa appearTween đã xong khỏi mảng quản lý
+                    this.activeTweens = this.activeTweens.filter(t => t !== appearTween);
+                }
+            });
+            this.activeTweens.push(appearTween);
+
+            // Gắn sự kiện click
+            (container.getAt(0) as Phaser.GameObjects.Sprite).on('pointerdown', () => this.handleBalloonClick(container, itemID));
         });
     }
 
-    createBalloonContainer(balloonKey: string, itemKey: string | null) {
+    // GameScene.ts
+
+    createBalloonContainer(balloonKey: string, itemID: string, startHidden: boolean = false) {
+        // [ĐÃ SỬA]: Chỉ đặt scale = 0 nếu startHidden = true (Mặc định là false)
         const container = this.add.container(0, 0);
-        const baseSize = this.getH() * 0.2; // Chiều cao mong muốn (20% màn hình)
 
-        // --- SỬA PHẦN BÓNG ---
-        const balloon = this.add.sprite(0, 0, balloonKey);
+        if (startHidden) {
+            container.setScale(0);
+        }
         
-        // Tính scale dựa trên chiều cao, chiều rộng sẽ tự đi theo
-        const scale = baseSize / balloon.height;
-        balloon.setScale(scale); 
+        const baseSize = this.getH() * 0.18; 
 
-        balloon.setInteractive();
+        const balloon = this.add.sprite(0, 0, balloonKey);
+        balloon.setScale(0.45).setInteractive({ useHandCursor: true });
         container.add(balloon);
 
-        // --- SỬA PHẦN ITEM (Để item cũng không bị méo) ---
-        if (itemKey) {
-            const item = this.add.sprite(0, -baseSize * 0.1, itemKey);
-            
-            // Item chỉ nên to bằng 50% quả bóng
-            const targetItemHeight = baseSize * 0.5;
-            const itemScale = targetItemHeight / item.height;
-            item.setScale(itemScale);
-
+        // [ĐÃ SỬA]: CHỈ THÊM HÌNH NẾU KHÔNG PHẢI LÀ BÓNG RỖNG
+        if (itemID !== 'empty') {
+            const item = this.add.sprite(0, -baseSize * 0.1, `item_${itemID}`);
+            item.setScale(0.3);
             container.add(item);
         }
-
+        
         return container;
     }
 
-    handleWrong(container: Phaser.GameObjects.Container) {
-        try { this.sound.play('wrong'); } catch {}
+    handleBalloonClick(container: Phaser.GameObjects.Container, itemID: string) {
+        if (this.state.isPaused) return;
+
+        if (itemID === 'empty') {
+                // Chơi tiếng Wrong
+                try { AudioManager.play('sfx-wrong') } catch {} // Hoặc dùng playVoiceLocked nếu đã cấu hình
+
+                // Hiệu ứng lắc lư mạnh và biến mất (giữ nguyên game, không pause)
+                this.tweens.add({
+                    targets: container,
+                    x: container.x + Phaser.Math.Between(-30, 30),
+                    y: container.y + Phaser.Math.Between(-30, 30),
+                    duration: 100,
+                    yoyo: true,
+                    repeat: 3, // Lắc 3 lần
+                    onComplete: () => {
+                        container.destroy();
+                    }
+                });
+                
+                // Dừng việc xử lý Popup và Tăng điểm
+                return; 
+            }
+
+        this.state.isPaused = true;
+        this.activeTweens.forEach(t => t.pause());
+        if (this.spawnTimer) this.spawnTimer.paused = true;
+
+        try { AudioManager.play(itemID); } catch {}
+
+        const data = GAME_ITEMS[itemID];
         
-        // Hiệu ứng rung lắc báo sai
-        this.tweens.add({
-            targets: container,
-            x: '+=10',
-            duration: 50,
-            yoyo: true,
-            repeat: 3
-        });
-    }
+        if (data) {
+            const bg = this.popupContainer.getByName('popup_board') as Phaser.GameObjects.Image;
+            const icon = this.popupContainer.getByName('popup_icon') as Phaser.GameObjects.Image;
+            const textImg = this.popupContainer.getByName('popup_text_img') as Phaser.GameObjects.Image;
 
-    handleCorrect(container: Phaser.GameObjects.Container, itemName: string) {
-        // Tắt tương tác để tránh click đúp
-        container.each((child: any) => { if(child.disableInteractive) child.disableInteractive(); });
-
-        try { this.sound.play(`sound_${itemName}`); } catch {}
-        
-        // Hiệu ứng nổ/biến mất
-        this.tweens.add({
-            targets: container,
-            scaleX: 1.2,
-            scaleY: 1.2,
-            alpha: 0,
-            duration: 200,
-            onComplete: () => container.destroy()
-        });
-
-        this.increaseScore();
-    }
-
-    increaseScore() {
-        if (this.state.score < this.state.maxScore) {
-            this.state.score++;
-            this.updateScoreBar();
+            if (bg && icon && textImg) {
+                icon.setTexture(`item_${data.id}`);
+                icon.setScale((bg.displayHeight * 0.4) / icon.height);
+                icon.y = -bg.displayHeight * 0.15;
+    
+                textImg.setTexture(`text_${data.id}`);
+                //textImg.setScale(1); 
+                const maxTextWidth = bg.displayWidth * 0.6;
+                if (textImg.width > maxTextWidth) textImg.setScale(maxTextWidth / textImg.width);
+                textImg.y = bg.displayHeight * 0.2; 
+            }
         }
+
+        this.popupContainer.setVisible(true).setScale(0);
+        this.tweens.add({ targets: this.popupContainer, scale: 1, duration: 300, ease: 'Back.out' });
+
+        // [SỬA LỖI] Gọi hàm tăng điểm và kiểm tra thắng thua
+        this.increaseScore();
+        
+        container.destroy();
+
+        // Tự động đóng sau 2 giây
+        this.time.delayedCall(2000, () => {
+            this.hidePopup();
+        });
     }
 
-    updateScoreBar() {
-        const maxWidth = this.scoreContainer.getData('maxWidth');
-        const height = this.scoreContainer.getData('height');
-        
-        const ratio = this.state.score / this.state.maxScore;
-        const newWidth = maxWidth * ratio;
-        const startX = -maxWidth / 2;
-        
-        // Tween thanh điểm chạy mượt
+    hidePopup() {
         this.tweens.add({
-            targets: { val: this.currentBarWidth },
-            val: newWidth,
-            duration: 300,
-            onUpdate: (_tween: any, target: any) => {
-                this.barFill.clear();
-                this.barFill.fillStyle(0x4CAF50, 1);
-                this.barFill.fillRoundedRect(startX, -height / 2, target.val, height, height / 2);
-                this.iconO.x = startX + target.val;
-            },
+            targets: this.popupContainer, scale: 0, duration: 200,
             onComplete: () => {
-                this.currentBarWidth = newWidth;
-                if (this.state.score >= this.state.maxScore) {
-                    this.winGame();
+                this.popupContainer.setVisible(false);
+                
+                // Chỉ resume game nếu chưa thắng
+                if (this.state.isPlaying) {
+                    this.state.isPaused = false;
+                    this.activeTweens.forEach(t => t.resume());
+                    if (this.spawnTimer) this.spawnTimer.paused = false;
                 }
             }
         });
     }
 
-    winGame() {
-        this.state.isPlaying = false;
-        if (this.spawnTimer) this.spawnTimer.remove();
-        
-        hideGameButtons();
-        // Delay chút rồi chuyển scene
-        this.time.delayedCall(500, () => {
-             this.scene.start('EndGameScene'); // Hoặc EndScene tùy config router của bạn
-        });
+    increaseScore() {
+        if (this.state.score < this.state.maxScore) {
+            this.state.score++;
+            
+            // [QUAN TRỌNG] Truyền tham số current và total vào
+            this.updateScoreBar(this.state.score, this.state.maxScore);
+            
+            // [QUAN TRỌNG] Kiểm tra điều kiện thắng
+            if (this.state.score >= this.state.maxScore) {
+                this.winGame();
+            }
+        }
     }
 
-    restartLevel() {
-        this.sound.stopAll();
-        this.scene.restart();
+    public updateScoreBar(current: number, total: number) {
+        let percent = current / total;
+        if (percent > 1) percent = 1;
+
+        const visibleWidth = this.maxScoreWidth * percent;
+
+        this.scoreBarMask.clear(); 
+        this.scoreBarMask.fillStyle(0xffffff); 
+        this.scoreBarMask.beginPath();
+        
+        const x = this.scoreBarFill.x; 
+        const y = this.scoreBarFill.y - this.scoreBarFill.height / 2; 
+        
+        this.scoreBarMask.fillRect(x, y, visibleWidth, this.scoreBarFill.height);
+    }
+
+    winGame() {
+        console.log("WIN GAME!");
+        this.state.isPlaying = false; // Dừng trạng thái chơi
+        if (this.boy) this.boy.stop(); // Dừng nhân vật
+        if (this.spawnTimer) this.spawnTimer.remove(); // Dừng sinh bóng
+
+        // Sau 1s thì chuyển Scene
+        this.time.delayedCall(1000, () => {
+            hideGameButtons();
+            // Đảm bảo bạn có Scene 'EndGameScene'
+            this.scene.start('EndGameScene'); 
+        });
     }
 }
