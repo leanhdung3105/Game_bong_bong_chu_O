@@ -3,6 +3,7 @@ import GameScene from './scenes/GameScene';
 import EndGameScene  from './scenes/EndgameScene';
 //import StartScene from './scenes/StartGameScene';
 import { initRotateOrientation } from './rotateOrientation';
+import AudioManager from './audio/AudioManager';
 
 declare global {
     interface Window {
@@ -61,15 +62,45 @@ export function hideGameButtons() {
     if (reset) reset.style.display = 'none';
 }
 
+function attachResetHandler() {
+    const resetBtn = document.getElementById('btn-reset') as HTMLImageElement;
+    
+    if (resetBtn) {
+        resetBtn.onclick = () => {
+            console.log('Restart button clicked. Stopping all audio and restarting scene.');
+
+            // 1. DỪNG TẤT CẢ ÂM THANH (Giải phóng pool)
+            AudioManager.stopAll(); 
+
+            // 2. PHÁT SFX CLICK
+            try {
+                AudioManager.play('sfx-click'); 
+            } catch (e) {
+                console.error("Error playing sfx-click on restart:", e);
+            }
+
+            // 3. CHUYỂN SCENE
+            if (window.gameScene && window.gameScene.scene) {
+                // Sử dụng scene.start() để tải lại GameScene
+                window.gameScene.scene.start('GameScene'); 
+            } else {
+                console.error('GameScene instance not found on window. Cannot restart.');
+            }
+            
+            hideGameButtons();
+        };
+    }
+}
+
 // Khởi tạo xoay màn hình
 initRotateOrientation(game);
-
+attachResetHandler();
 
 // Scale nút
 updateUIButtonScale();
 window.addEventListener('resize', updateUIButtonScale);
 window.addEventListener('orientationchange', updateUIButtonScale);
 
-document.getElementById('btn-reset')?.addEventListener('click', () => {
+document.getElementById('btn-reset')?.addEventListener('sfx-click', () => {
     window.gameScene?.scene.restart();
 });

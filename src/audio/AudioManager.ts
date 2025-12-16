@@ -36,8 +36,12 @@ const SOUND_MAP: Record<string, SoundConfig> = {
     'sfx-correct': { src: `${BASE_PATH}correct.mp3`, volume: 1.0 },
     'sfx-wrong': { src: `${BASE_PATH}wrong.mp3`, volume: 0.8 },
     'sfx-click': { src: `${BASE_PATH}click.mp3`, volume: 0.8 },
+
+    'bgm-nen': { src: `${BASE_PATH}nhan_nen.mp3`, loop: true, volume: 0.05 },
+
     'voice-rotate': { src: `${BASE_PATH}rotate.mp3`, volume: 0.8 },
     'instruction': { src: `${BASE_PATH}instruction.mp3`, volume: 1.0 },
+    'start': { src: `${BASE_PATH}khen_be.mp3`, volume: 1.0 },
     'complete': { src: `${BASE_PATH}complete.mp3`, volume: 1.0 },
     'fireworks': { src: `${BASE_PATH}fireworks.mp3`, volume: 1.0 },
     'applause': { src: `${BASE_PATH}applause.mp3`, volume: 1.0 },

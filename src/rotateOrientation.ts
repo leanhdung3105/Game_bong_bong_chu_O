@@ -6,7 +6,7 @@ import AudioManager from './audio/AudioManager';
 let rotateOverlay: HTMLDivElement | null = null;
 let isRotateOverlayActive = false;
 let currentVoiceKey: string | null = null;
-
+let gameSceneReference: any = null;
 // chỉ attach 1 lần
 let globalBlockListenersAttached = false;
 
@@ -14,6 +14,8 @@ let globalBlockListenersAttached = false;
 let lastRotateVoiceTime = 0;
 const ROTATE_VOICE_COOLDOWN = 1500; // ms – 1.5s
 
+// --- THÊM BIẾN NÀY ---
+let instructionVoiceStoppedByRotate = false;
 // ================== CẤU HÌNH CỐ ĐỊNH (DÙNG CHUNG) ==================
 type RotateConfig = {
     breakpoint: number; // max width để coi là màn nhỏ (mobile)
@@ -71,6 +73,10 @@ export function playVoiceLocked(
             // );
             return;
         }
+
+        if (currentVoiceKey === 'instruction') {
+             instructionVoiceStoppedByRotate = true;
+        }
         lastRotateVoiceTime = now;
 
         try {
@@ -111,6 +117,10 @@ export function playVoiceLocked(
     if (currentVoiceKey) {
         AudioManager.stop(currentVoiceKey);
         currentVoiceKey = null;
+    }
+
+    if (key === 'instruction') {
+        instructionVoiceStoppedByRotate = false;
     }
 
     const id = AudioManager.play(key);
@@ -244,7 +254,25 @@ function updateRotateHint() {
             AudioManager.stop('voice-rotate');
             currentVoiceKey = null;
         }
+        try {
+            (AudioManager as any).play('bgm-nen'); 
+        } catch (e) {
+            console.warn('[Rotate] auto play bgm-nen error:', e);
+        }
+
+        // --- LOGIC PHỤC HỒI INSTRUCTION ---
+        if (instructionVoiceStoppedByRotate) {
+            const shouldRestoreInstruction = 
+                gameSceneReference && 
+                !gameSceneReference.isInstructionCompleted;
+            if (shouldRestoreInstruction) {
+                 console.log('[Rotate] Phục hồi giọng nói hướng dẫn.');
+                 playVoiceLocked(null as any, 'instruction'); 
+             }
+             instructionVoiceStoppedByRotate = false; // Reset cờ
+        }
     }
+
 }
 
 // ================== KHỞI TẠO HỆ THỐNG XOAY ==================
@@ -265,4 +293,13 @@ export function initRotateOrientation(_game: Phaser.Game) {
         'orientationchange',
         updateRotateHint as unknown as EventListener
     );
+}
+
+export function resetVoiceState() { // <--- THÊM HÀM NÀY
+    currentVoiceKey = null;
+    instructionVoiceStoppedByRotate = false;
+}
+
+export function setGameSceneReference(scene: any) {
+    gameSceneReference = scene;
 }

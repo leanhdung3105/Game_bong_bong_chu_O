@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { showGameButtons, hideGameButtons } from '../main';
 import AudioManager from '../audio/AudioManager';
 import { changeBackground } from './utils/backgroundManager';
+import { playVoiceLocked, resetVoiceState, setGameSceneReference } from '../rotateOrientation';
 
 // --- 1. DATA GỌN NHẸ ---
 interface ItemData {
@@ -46,6 +47,7 @@ export default class GameScene extends Phaser.Scene {
     private spawnTimer?: Phaser.Time.TimerEvent;
     private activeTweens: Phaser.Tweens.Tween[] = [];
     private balloonColors = ['red', 'blue', 'green', 'yellow', 'purple'];
+    private isInstructionCompleted: boolean = false;
 
     constructor() { super('GameScene'); }
 
@@ -57,6 +59,7 @@ export default class GameScene extends Phaser.Scene {
     init() {
         this.state = { score: 0, maxScore: 5, isPlaying: false, isPaused: false };
         this.activeTweens = [];
+        this.isInstructionCompleted = false;
     }
 
     preload() {
@@ -82,7 +85,10 @@ export default class GameScene extends Phaser.Scene {
     }
 
     create() {
+        resetVoiceState(); // <--- GỌI HÀM RESET NGAY LẬP TỨC
+        AudioManager.play('bgm-nen');
         (window as any).gameScene = this;
+        setGameSceneReference(this);
         changeBackground('assets/images/bg_game.jpg');
 
         this.createBoy();
@@ -166,7 +172,14 @@ export default class GameScene extends Phaser.Scene {
         const bannerText = this.add.image(this.pctX(0.5), this.pctY(0.1), 'text_banner').setName('banner_text');
         bannerText.setScale((this.getW() * 0.5) / bannerText.width);
 
-        try { AudioManager.play('instruction'); } catch (e) { }
+        try { 
+            // THAY THẾ: AudioManager.play('instruction');
+            // BẰNG: 
+            playVoiceLocked(null as any, 'instruction'); // <--- SỬ DỤNG LOGIC ƯU TIÊN VOICE
+        } catch (e) { 
+            console.warn('Error playing instruction voice:', e);
+        }
+        this.isInstructionCompleted = true;
 
         const tutorialBalloon = this.createBalloonContainer('balloon_blue', 'letter_o');
         tutorialBalloon.setPosition(this.pctX(0.5), this.pctY(0.4));
@@ -181,6 +194,8 @@ export default class GameScene extends Phaser.Scene {
 
         hitArea.once('pointerdown', () => {
             tutorialBalloon.destroy();
+            AudioManager.stop('instruction');
+            AudioManager.play('start');
             if (this.hand) this.hand.destroy();
 
             this.tweens.add({ 
@@ -343,8 +358,9 @@ export default class GameScene extends Phaser.Scene {
 
         this.state.isPaused = true;
         this.activeTweens.forEach(t => t.pause());
+        if (this.boy) this.boy.stop();
         if (this.spawnTimer) this.spawnTimer.paused = true;
-
+        
         try { AudioManager.play(itemID); } catch {}
 
         const data = GAME_ITEMS[itemID];
@@ -392,6 +408,7 @@ export default class GameScene extends Phaser.Scene {
                     this.state.isPaused = false;
                     this.activeTweens.forEach(t => t.resume());
                     if (this.spawnTimer) this.spawnTimer.paused = false;
+                    this.boy.play('run');
                 }
             }
         });

@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { hideGameButtons } from '../main'; 
 import AudioManager from '../audio/AudioManager';
+import { changeBackground } from './utils/backgroundManager';
 
 export default class EndGameScene extends Phaser.Scene {
     private containerEl: HTMLElement | null = null;
@@ -22,7 +23,7 @@ export default class EndGameScene extends Phaser.Scene {
     create() {
         const w = this.scale.width; 
         const h = this.scale.height;
-        
+        changeBackground('assets/images/bg_end.png');
         AudioManager.loadAll();
         AudioManager.play('complete');
 
@@ -76,9 +77,9 @@ export default class EndGameScene extends Phaser.Scene {
             .setInteractive({ useHandCursor: true });
         
         replayBtn.on('pointerdown', () => {
-            AudioManager.play('sfx_click');
+            AudioManager.play('sfx-click');
             AudioManager.stopAll();
-            this.stopConfetti();
+            this.stopConfetti(); //
             this.scene.start('GameScene');
         });
 
