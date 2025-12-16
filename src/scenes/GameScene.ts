@@ -85,18 +85,51 @@ export default class GameScene extends Phaser.Scene {
     }
 
     create() {
-        resetVoiceState(); // <--- GỌI HÀM RESET NGAY LẬP TỨC
-        AudioManager.play('bgm-nen');
+        resetVoiceState(); 
         (window as any).gameScene = this;
         setGameSceneReference(this);
         changeBackground('assets/images/bg_game.jpg');
 
         this.createBoy();
-        this.createScoreBar(); // Gọi hàm tạo thanh điểm Mask
+        this.createScoreBar(); 
         this.createPopupUI(); 
-        this.createBannerAndTutorial();
+        this.createBannerAndTutorial(); 
+
+        // Khóa input bàn phím (nếu có)
+        if (this.input.keyboard) {
+            this.input.keyboard.enabled = false;
+        }
+
+        // --- HÀM LOGIC: BẮT ĐẦU ÂM THANH & GAME ---
+        // (Được tách ra để có thể gọi ngay lập tức HOẶC gọi sau khi click)
+        const startGameFlow = () => {
+            AudioManager.play('bgm-nen'); 
+            try { 
+                playVoiceLocked(null as any, 'instruction'); 
+            } catch (e) { 
+                console.warn('Error playing instruction voice:', e); 
+            }
+
+            // Mở lại bàn phím
+            if (this.input.keyboard) {
+                this.input.keyboard.enabled = true;
+            }
+            showGameButtons();
+        };
+
+        // --- KIỂM TRA ĐIỀU KIỆN ĐỂ CHẠY ---
         
-        showGameButtons();
+        // TRƯỜNG HỢP 1: Chơi lại (Restart) -> Âm thanh đã unlock sẵn -> CHẠY LUÔN
+        if (AudioManager.isUnlocked) {
+            startGameFlow();
+        } 
+        // TRƯỜNG HỢP 2: Mới vào game lần đầu -> Âm thanh bị khóa -> CHỜ CLICK
+        else {
+            this.input.once('pointerdown', () => {
+                AudioManager.unlockAudio(); 
+                startGameFlow();
+            }, this);
+        }
     }
 
     // --- SETUP UI ---
@@ -172,15 +205,6 @@ export default class GameScene extends Phaser.Scene {
         const bannerText = this.add.image(this.pctX(0.5), this.pctY(0.1), 'text_banner').setName('banner_text');
         bannerText.setScale((this.getW() * 0.5) / bannerText.width);
 
-        try { 
-            // THAY THẾ: AudioManager.play('instruction');
-            // BẰNG: 
-            playVoiceLocked(null as any, 'instruction'); // <--- SỬ DỤNG LOGIC ƯU TIÊN VOICE
-        } catch (e) { 
-            console.warn('Error playing instruction voice:', e);
-        }
-        this.isInstructionCompleted = true;
-
         const tutorialBalloon = this.createBalloonContainer('balloon_blue', 'letter_o');
         tutorialBalloon.setPosition(this.pctX(0.5), this.pctY(0.4));
         
@@ -204,7 +228,7 @@ export default class GameScene extends Phaser.Scene {
             });
             
             if (this.boy) this.boy.play('run');
-
+            this.isInstructionCompleted = true;
             this.state.isPlaying = true;
             this.startGameLoop();
         });

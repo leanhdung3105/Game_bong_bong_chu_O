@@ -173,6 +173,30 @@ class AudioManager {
         const id = `prompt_${type}_${animal}`;
         this.play(id);
     }
+    get isUnlocked(): boolean {
+        // Nếu ctx tồn tại và trạng thái là 'running', nghĩa là đã unlock
+        return Howler.ctx && Howler.ctx.state === 'running';
+    }
+
+    unlockAudio(): void {
+        if (!Howler.usingWebAudio) return; 
+        
+        // Tạo một âm thanh dummy và play/stop ngay lập tức
+        const dummySound = new Howl({
+            src: ['data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAAABkYXRhAAAAAA=='], // 1-frame silent WAV
+            volume: 0,
+            html5: true 
+        });
+        dummySound.once('play', () => {
+            dummySound.stop();
+            console.log('[Howler] Audio context unlocked manually.');
+        });
+
+        // Chỉ play nếu context đang ở trạng thái suspended/locked
+        if (Howler.ctx && Howler.ctx.state !== 'running') {
+            dummySound.play();
+        }
+    }
 }
 
 // Xuất phiên bản duy nhất (Singleton)
