@@ -23,6 +23,9 @@ body {
 canvas {
     display: block; /* loại bỏ margin tự động của canvas */
     margin-left: 0 !important;
+    margin-top: 0 !important;
+    margin-right: 0 !important;
+    margin-bottom: 0 !important;
 }
 
 /* 2. THÊM đoạn style mới cho layer nền */
